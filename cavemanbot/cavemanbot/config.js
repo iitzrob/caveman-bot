@@ -51,40 +51,45 @@ module.exports = {
 
 > Open this if you want to sponsor a giveaway.`,
 
-  staffRoleId: '',
+  staffRoleId: '1534029589569998888',
 
   // Role that always keeps SendMessages in a support ticket, even after
   // it's claimed and every other role gets locked out. This role is also
   // granted access to every new ticket when it's created.
-  alwaysCanTypeRoleId: '',
+  alwaysCanTypeRoleId: '1534029586231332986',
 
   // Channel where a copy of every ticket's transcript gets posted when it's
   // closed (in addition to DMing it to whoever opened the ticket).
-  ticketLogChannelId: '',
+  ticketLogChannelId: '1534030311992721478',
 
   // Per-ticket-type settings. Keys must match the `id` values in
   // data/ticketCategories.js. Each one can go to its own category channel
   // and ping its own role. Leave pingRoleId as '' to only ping staffRoleId.
   ticketCategories: {
     support: {
-      categoryId: '',
-      pingRoleId: '',
+      categoryId: '1534029665382170814',
+      pingRoleId: '1534029589569998888',
+       pingRoleId: '1534029586231332986',
     },
     staff_report: {
-      categoryId: '',
-      pingRoleId: '',
+      categoryId: '1534029678682181703',
+      pingRoleId: '1534029589569998888',
+       pingRoleId: '1534029586231332986',
     },
     buy_sell_spawner: {
-      categoryId: '',
-      pingRoleId: '',
+      categoryId: '1534029675804889108',
+      pingRoleId: '1534029589569998888',
+       pingRoleId: '1534029586231332986',
     },
     giveaway_claim: {
-      categoryId: '',
-      pingRoleId: '',
+      categoryId: '1534029669140271275',
+      pingRoleId: '1534029589569998888',
+       pingRoleId: '1534029586231332986',
     },
     giveaway_sponsor: {
-      categoryId: '',
-      pingRoleId: '',
+      categoryId: '1534029672407367690',
+      pingRoleId: '1534029589569998888',
+       pingRoleId: '1534029586231332986',
     },
 
     // ---- Services panel (/service-panel) ----
@@ -97,23 +102,39 @@ module.exports = {
     // - pingRoleId: every service ticket pings this one role.
     build: {
       emoji: '🏗️',
-      categoryId: '',
-      pingRoleId: '',
+      categoryId: '1534029693697921225',
+       pingRoleId: '1534057976208560228',
+       pingRoleId: '1534029545957625978',
+       pingRoleId: '1534029542707171418',
+       pingRoleId: '1534484843101032538',
+       pingRoleId: '1534029586231332986',
     },
     dig: {
       emoji: '⛏️',
-      categoryId: '',
-      pingRoleId: '',
+    categoryId: '1534029697099370597',
+       pingRoleId: '1534057976208560228',
+       pingRoleId: '1534029545957625978',
+       pingRoleId: '1534029542707171418',
+       pingRoleId: '1534484843101032538',
+       pingRoleId: '1534029586231332986',
     },
     mapart: {
       emoji: '🗺️',
-      categoryId: '',
-      pingRoleId: '',
+     categoryId: '1534029700601610401',
+       pingRoleId: '1534057976208560228',
+       pingRoleId: '1534029545957625978',
+       pingRoleId: '1534029542707171418',
+       pingRoleId: '1534484843101032538',
+       pingRoleId: '1534029586231332986',
     },
     regears: {
       emoji: '🛡️',
-      categoryId: '',
-      pingRoleId: '',
+      categoryId: '1534029704275955713',
+       pingRoleId: '1534057976208560228',
+       pingRoleId: '1534029545957625978',
+       pingRoleId: '1534029542707171418',
+       pingRoleId: '1534484843101032538',
+       pingRoleId: '1534029586231332986',
     },
   },
 
@@ -135,16 +156,16 @@ module.exports = {
   //   to pull the applicant into a channel before deciding)
   applicationCategories: {
     staff_helper: {
-      reviewChannelId: '',
-      pingRoleId: '',
-      acceptedRoleId: '',
-      ticketCategoryId: '',
+      reviewChannelId: '1534029928683798640',
+      pingRoleId: '1534029586231332986',
+      acceptedRoleId: '1535942602258522132',
+      ticketCategoryId: '1534867123266912299',
     },
     builder: {
-      reviewChannelId: '',
-      pingRoleId: '',
-      acceptedRoleId: '',
-      ticketCategoryId: '',
+      reviewChannelId: '1534029932563529828',
+      pingRoleId: '1534029586231332986',
+      acceptedRoleId: '1535942667375087639',
+      ticketCategoryId: '1534917203768643775',
     },
   },
 
@@ -170,18 +191,16 @@ module.exports = {
     // reached. The bot needs the Manage Roles permission, and its own role
     // must sit ABOVE these roles in Server Settings > Roles.
     roleRewards: {
-      1: '',
-      3: '',
-      5: '',
-      10: '',
-      15: '',
-      20: '',
-      25: '',
-      30: '',
-      35: '',
-      40: '',
-      45: '',
-      50: '',
+      3: '1534061530713292892',
+      6: '1534061673525280918',
+      9: '1534061765082742875',
+      12: '1534061849832718397',
+      15: '1534061982926241793',
+      18: '1534062082050363472',
+      21: '1534062335738511463',
+      24: '1534064671462654052',
+      27: '1534064768472715316',
+      30: '1534064837988978829',  
     },
     // false = keep only the highest reward role (lower ones get removed).
     // true = keep every reward role they've earned.
