@@ -22,7 +22,7 @@ module.exports = {
   //   {ordinal} is their spot in the member count (e.g. "42nd").
   welcome: {
     enabled: true,
-    channelId: '',
+    channelId: '1534029743433715872',
     message: 'Welcome {user} to {guild}. You are the {ordinal} member. We hope you have a great time!',
   },
 
