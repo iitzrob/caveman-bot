@@ -179,7 +179,7 @@ module.exports = {
   //   channel ids to ONLY count messages in those channels.
   // Chatting inside ticket channels never earns XP.
   levels: {
-    channelId: '',
+    channelId: '1534029753948831776',
     maxLevel: 500,
     xpMin: 15,
     xpMax: 40,
