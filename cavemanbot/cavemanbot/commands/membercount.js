@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 // Shown next to "Members". Change the id here to swap the emoji.
-const MEMBER_EMOJI = '<:Emojis_48x48_115:1551135209976762379>';
+const MEMBER_EMOJI = '<:1st246234:1533798054681907291>';
 
 const fmt = (n) => n.toLocaleString('en-US');
 
