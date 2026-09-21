@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ChannelType, escapeMarkdown } = require('discord.js');
 
 // Shown on the "Owner" line. Add or remove Discord user ids here.
-const OWNER_IDS = ['1483443804769095744', '1480382650551111844'];
+const OWNER_IDS = ['1483443804769095744'];
 
 const fmt = (n) => n.toLocaleString('en-US');
 
