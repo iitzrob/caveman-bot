@@ -31,23 +31,23 @@ module.exports = {
   // The buttons themselves (labels + emoji) still come from
   // data/ticketCategories.js, this is just the description text above them.
   ticketPanelDescription:
-`<:63756redticket:1549053777854726246> ### Support
+`### <:63756redticket:1549053777854726246> Support
 
 > **Open this if you want help or assistance with anything.**
 
-<:Scammer:1549428770325405706> ### Staff Report
+### <:Scammer:1549428770325405706> Staff Report
 
 > **Open this if a staff / builder did something wrong.**
 
- <:Spawner1:1549428700238315540> ### Buy/Sell Spawner
+### <:Spawner1:1549428700238315540> Buy/Sell Spawner
 
 > **Open this if you want to buy/sell spawners.**
 
-<a:3899gift:1537021187450871859> ### Giveaway Claim
+### <a:3899gift:1537021187450871859> Giveaway Claim
 
 > **Open this to claim a giveaway you won.**
 
-<:1st246234:1533798054681907291> ### Giveaway Sponsor
+### <:1st246234:1533798054681907291> Giveaway Sponsor
 
 > **Open this if you want to sponsor a giveaway.**`,
 
@@ -120,7 +120,7 @@ module.exports = {
     //   it's '' the ticket channels are created with no category.
     // - pingRoleId: every service ticket pings this one role.
     build: {
-      emoji: '<:BlocksPlaced52234234:1533798033320575158>',
+      emoji: '🏗️',
       categoryId: '1534029693697921225',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
@@ -129,7 +129,7 @@ module.exports = {
        pingRoleId: '1534029586231332986',
     },
     dig: {
-      emoji: '<:BlocksBroken5234234:1533798031944843408>',
+      emoji: '⛏️',
     categoryId: '1534029697099370597',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
@@ -138,7 +138,7 @@ module.exports = {
        pingRoleId: '1534029586231332986',
     },
     mapart: {
-      emoji: '<:Map:1551849803141615667>',
+      emoji: '🗺️',
      categoryId: '1534029700601610401',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
@@ -147,7 +147,7 @@ module.exports = {
        pingRoleId: '1534029586231332986',
     },
     regears: {
-      emoji: '<:shulker:1551849753749360735>',
+      emoji: '🛡️',
       categoryId: '1534029704275955713',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
