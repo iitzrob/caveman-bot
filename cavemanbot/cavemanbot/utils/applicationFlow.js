@@ -2,6 +2,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
   EmbedBuilder,
 } = require('discord.js');
 const ticketStore = require('./ticketStore');
@@ -15,11 +16,16 @@ function cancelRow() {
   );
 }
 
-function yesNoRow() {
+function yesNoSelectRow() {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('application_yes').setLabel('Yes').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('application_no').setLabel('No').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('application_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
+    new StringSelectMenuBuilder()
+      .setCustomId('application_yesno_select')
+      .setPlaceholder('Select an answer')
+      .addOptions(
+        { label: 'Yes', value: 'yes' },
+        { label: 'No', value: 'no' },
+        { label: 'Cancel', value: 'cancel' }
+      )
   );
 }
 
@@ -32,29 +38,38 @@ function questionEmbed(question, index, total) {
 
 // Asks a single question in `channel` (the applicant's DM channel) and waits
 // for `userId` to answer it, either by typing a message or (for yes/no
-// questions) pressing a button. A Cancel button is always available underneath.
+// questions) picking an option from a dropdown. A Cancel button/option is
+// always available.
 async function askQuestion(channel, userId, question, index, total) {
   const embed = questionEmbed(question, index, total);
 
   if (question.type === 'yesno') {
-    const qMsg = await channel.send({ embeds: [embed], components: [yesNoRow()] });
+    const qMsg = await channel.send({ embeds: [embed], components: [yesNoSelectRow()] });
 
-    const btnInteraction = await qMsg
+    const selectInteraction = await qMsg
       .awaitMessageComponent({
-        filter: (i) =>
-          i.user.id === userId &&
-          ['application_yes', 'application_no', 'application_cancel'].includes(i.customId),
+        filter: (i) => i.user.id === userId && i.customId === 'application_yesno_select',
         time: QUESTION_TIMEOUT_MS,
       })
       .catch(() => null);
 
-    await qMsg.edit({ components: [] }).catch(() => {});
+    if (!selectInteraction) {
+      await qMsg.edit({ components: [] }).catch(() => {});
+      return { cancelled: true, timedOut: true };
+    }
 
-    if (!btnInteraction) return { cancelled: true, timedOut: true };
-    await btnInteraction.deferUpdate().catch(() => {});
+    const choice = selectInteraction.values[0]; // 'yes' | 'no' | 'cancel'
+    const label = choice === 'yes' ? 'Yes' : choice === 'no' ? 'No' : 'Cancel';
 
-    if (btnInteraction.customId === 'application_cancel') return { cancelled: true };
-    return { answer: btnInteraction.customId === 'application_yes' ? 'Yes' : 'No' };
+    // Swap the embed's description to show what they picked, and drop the
+    // dropdown now that it's been answered.
+    const answeredEmbed = EmbedBuilder.from(embed).setDescription(
+      `${question.text}\n\n**Selected:** ${label}`
+    );
+    await selectInteraction.update({ embeds: [answeredEmbed], components: [] }).catch(() => {});
+
+    if (choice === 'cancel') return { cancelled: true };
+    return { answer: label };
   }
 
   const qMsg = await channel.send({ embeds: [embed], components: [cancelRow()] });
