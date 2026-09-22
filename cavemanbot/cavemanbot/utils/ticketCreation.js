@@ -12,6 +12,14 @@ const config = require('../config');
 const ticketStore = require('./ticketStore');
 const { isStaff } = require('./permissions');
 const { buildTranscript } = require('./transcript');
+const points = require('./points');
+
+// Points awarded to staff for each ticket action, added to the weekly
+// leaderboard (utils/points.js). Close Ticket, Request Close, and Rename
+// Ticket are each worth 2 points on their own — requesting a close and it
+// later being agreed to only counts once, at the point the staff member
+// clicks Request Close.
+const POINTS_PER_ACTION = 2;
 
 // This role always keeps SendMessages in a ticket, even after it's claimed
 // and every other role gets locked out. Edit config.alwaysCanTypeRoleId to
@@ -46,6 +54,8 @@ async function closeChannel(interaction) {
   if (!meta) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
+
+  points.addPoints(interaction.user.id, POINTS_PER_ACTION);
 
   await interaction.reply({ embeds: [systemEmbed('🔒 Closing ticket, making a transcript...')] });
 
@@ -122,6 +132,8 @@ async function requestClose(interaction) {
   if (!meta || !meta.openerId) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
+
+  points.addPoints(interaction.user.id, POINTS_PER_ACTION);
 
   const embed = new EmbedBuilder()
     .setDescription(`<@${meta.openerId}>, ${interaction.user} requested to close this ticket. Do you agree?`)
@@ -209,6 +221,8 @@ async function renameChannel(interaction, newName) {
 
   const oldName = interaction.channel.name;
   await interaction.channel.setName(sanitized);
+
+  points.addPoints(interaction.user.id, POINTS_PER_ACTION);
 
   await interaction.reply({
     embeds: [systemEmbed(`${interaction.user} renamed this ticket to \`${sanitized}\``)],
