@@ -120,7 +120,7 @@ module.exports = {
     //   it's '' the ticket channels are created with no category.
     // - pingRoleId: every service ticket pings this one role.
     build: {
-      emoji: '🏗️',
+      emoji: '<:BlocksPlaced52234234:1533798033320575158>',
       categoryId: '1534029693697921225',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
@@ -129,7 +129,7 @@ module.exports = {
        pingRoleId: '1534029586231332986',
     },
     dig: {
-      emoji: '⛏️',
+      emoji: '<:BlocksBroken5234234:1533798031944843408>',
     categoryId: '1534029697099370597',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
@@ -138,7 +138,7 @@ module.exports = {
        pingRoleId: '1534029586231332986',
     },
     mapart: {
-      emoji: '🗺️',
+      emoji: '<:Map:1551849803141615667>',
      categoryId: '1534029700601610401',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
@@ -147,7 +147,7 @@ module.exports = {
        pingRoleId: '1534029586231332986',
     },
     regears: {
-      emoji: '🛡️',
+      emoji: '<:shulker:1551849753749360735>',
       categoryId: '1534029704275955713',
        pingRoleId: '1534057976208560228',
        pingRoleId: '1534029545957625978',
