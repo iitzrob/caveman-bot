@@ -262,7 +262,7 @@ module.exports = {
   // Trackers only resolve automatically (paid via the balance check, or
   // expired if time runs out) — the only button on one is Cancel.
   payments: {
-    statsChannelId: '',
+    statsChannelId: '1551189729909809154',
     statsBotId: '1321520416677695559',
     statsCommand: '!stats',
     replyTimeoutSeconds: 20,
