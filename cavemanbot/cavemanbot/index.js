@@ -205,7 +205,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId.startsWith('application_open_ticket:')) {
         return await handleApplicationOpenTicket(interaction);
       }
-      // Buttons on a /track payment message (Mark as Paid / Cancel).
+      // Buttons on a /track payment message (Cancel).
       if (interaction.customId.startsWith('payment_')) {
         return await handlePaymentButton(interaction);
       }
