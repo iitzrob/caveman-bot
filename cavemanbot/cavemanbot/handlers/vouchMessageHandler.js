@@ -116,6 +116,10 @@ async function handleScamVouchButton(interaction) {
 
   const cfg = config.vouches || {};
   const pingRoleId = cfg.reportPingRoleId || config.staffRoleId;
+  // Falls back to the existing "Staff Report" ticket category
+  // (config.ticketCategories.staff_report.categoryId) unless
+  // config.vouches.reportCategoryId is explicitly set to something else.
+  const reportCategoryId = cfg.reportCategoryId || (config.ticketCategories.staff_report || {}).categoryId;
 
   let guild;
   try {
@@ -130,7 +134,7 @@ async function handleScamVouchButton(interaction) {
     ({ channel, rolesWithAccess } = await createPrivateChannel({
       guild,
       name: `scam-report-${interaction.user.username}`,
-      parentId: cfg.reportCategoryId,
+      parentId: reportCategoryId,
       openerId: pending.voucherId,
       roleIds: [config.staffRoleId, pingRoleId, config.alwaysCanTypeRoleId],
     }));
