@@ -142,7 +142,7 @@ module.exports = {
   servicePanelTitle: "Donut District's DonutSMP Services",
 
   // Per-application-type settings. Keys must match the keys in
-  // data/applicationQuestions.js (staff_helper, builder).
+  // data/applicationQuestions.js (staff_helper, builder, partner_manager).
   // - reviewChannelId: an EXISTING channel (NOT a category) where finished
   //   applications get posted with Accept/Decline buttons. Make this
   //   staff-only — applicants never see it, they answer questions over DM
@@ -166,6 +166,11 @@ module.exports = {
       pingRoleId: '1534029586231332986',
       acceptedRoleId: '1535942667375087639',
       ticketCategoryId: '1534917203768643775',
+    },
+    partner_manager: {
+      reviewChannelId: '1551789080050671748',
+      pingRoleId: '1534029586231332986',
+      ticketCategoryId: '1551789632956665957',
     },
   },
 
