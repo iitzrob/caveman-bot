@@ -110,21 +110,37 @@ let clientRef = null;
 // Re-draws the tracker message after progress or status changes. The message
 // is edited through the channel (not the slash command reply) because
 // interaction replies stop being editable after 15 minutes.
-async function refreshMessage(p) {
-  if (!clientRef || !p.messageId) return;
+//
+// pingIds (optional): user ids to @mention on this edit. Discord notifies
+// people when a mention is newly added to a message, even on an edit — so
+// passing pingIds here means the ping lands the exact moment the embed
+// changes, instead of via a separate message.
+// Returns true if the edit went through, false if the message/channel is
+// gone (so the caller can fall back to notify()).
+async function refreshMessage(p, pingIds = []) {
+  if (!clientRef || !p.messageId) return false;
   try {
     const channel = await clientRef.channels.fetch(p.channelId);
     const message = await channel.messages.fetch(p.messageId);
-    await message.edit({ embeds: [buildEmbed(p)], components: buildButtons(p) });
+    const edit = { embeds: [buildEmbed(p)], components: buildButtons(p) };
+    if (pingIds.length) {
+      edit.content = pingIds.map((id) => `<@${id}>`).join(' ');
+      edit.allowedMentions = { users: pingIds };
+    }
+    await message.edit(edit);
+    return true;
   } catch (err) {
     // Usually the ticket channel was deleted or the message was removed —
     // tracking carries on regardless.
     console.warn(`[payments] Couldn't update the message for payment ${p.id}: ${err.message}`);
+    return false;
   }
 }
 
-// Posts a result in the original channel. If that channel is gone (e.g. the
-// ticket was closed) the person who started the tracker gets a DM instead.
+// Fallback for when the tracker message itself is gone, so pinging on the
+// edit (above) isn't possible. Posts a plain message in the original
+// channel; if that's gone too (e.g. the ticket was closed) the person who
+// started the tracker gets a DM instead.
 async function notify(p, content, userIds) {
   if (!clientRef) return;
   try {
@@ -224,29 +240,28 @@ async function finish(p, status, measured = {}, resolvedBy = null) {
     resolvedBy,
     ...(status === 'paid' && !resolvedBy ? { progress: p.amount } : {}),
   });
-  await refreshMessage(updated);
 
-  // Pings the Discord users involved plus whoever started the tracker.
+  // Everyone involved: the payer, the receiver, and whoever started the
+  // tracker. Whoever's already named above (payer/receiver) isn't repeated.
   const who = [...new Set([updated.payerDiscordId, updated.receiverDiscordId, updated.createdBy].filter(Boolean))];
-  const payer = personName(updated.payerDiscordId, updated.payerIgn);
-  const receiver = personName(updated.receiverDiscordId, updated.receiverIgn);
-  // Whoever started the tracker gets pinged too, unless they're already named above.
-  const starter = [updated.payerDiscordId, updated.receiverDiscordId].includes(updated.createdBy)
-    ? ''
-    : ` (<@${updated.createdBy}>)`;
-  if (status === 'paid' && !resolvedBy) {
-    await notify(
-      updated,
-      `Payment complete: ${payer} paid ${receiver} ${payments.moneyWithShort(updated.amount)}.${starter}`,
-      who
-    );
-  } else if (status === 'expired') {
-    await notify(
-      updated,
-      `Time's up: ${payer} didn't pay ${receiver} the full ${payments.moneyWithShort(updated.amount)} in time (${payments.money(updated.progress)} went through).${starter}`,
-      who
-    );
+  const shouldPing = status === 'paid' || status === 'expired';
+  const pinged = await refreshMessage(updated, shouldPing ? who : []);
+
+  // If the tracker message/channel is gone, the ping above never went out —
+  // fall back to a new message (or a DM) so people still get told.
+  if (shouldPing && !pinged) {
+    const payer = personName(updated.payerDiscordId, updated.payerIgn);
+    const receiver = personName(updated.receiverDiscordId, updated.receiverIgn);
+    const starter = [updated.payerDiscordId, updated.receiverDiscordId].includes(updated.createdBy)
+      ? ''
+      : ` (<@${updated.createdBy}>)`;
+    const content =
+      status === 'paid'
+        ? `Payment complete: ${payer} paid ${receiver} ${payments.moneyWithShort(updated.amount)}.${starter}`
+        : `Time's up: ${payer} didn't pay ${receiver} the full ${payments.moneyWithShort(updated.amount)} in time (${payments.money(updated.progress)} went through).${starter}`;
+    await notify(updated, content, who);
   }
+
   return updated;
 }
 
