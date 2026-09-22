@@ -15,11 +15,13 @@ const { buildTranscript } = require('./transcript');
 const points = require('./points');
 
 // Points awarded to staff for each ticket action, added to the weekly
-// leaderboard (utils/points.js). Close Ticket, Request Close, and Rename
-// Ticket are each worth 2 points on their own — requesting a close and it
-// later being agreed to only counts once, at the point the staff member
-// clicks Request Close.
-const POINTS_PER_ACTION = 2;
+// leaderboard (utils/points.js). Rename Ticket is worth more since it takes
+// more thought (fitting a clear, useful channel name) than the other two.
+// Requesting a close and it later being agreed to only counts once, at the
+// point the staff member clicks Request Close.
+const CLOSE_POINTS = 2;
+const REQUEST_CLOSE_POINTS = 2;
+const RENAME_POINTS = 3;
 
 // This role always keeps SendMessages in a ticket, even after it's claimed
 // and every other role gets locked out. Edit config.alwaysCanTypeRoleId to
@@ -55,7 +57,7 @@ async function closeChannel(interaction) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
 
-  points.addPoints(interaction.user.id, POINTS_PER_ACTION);
+  points.addPoints(interaction.user.id, CLOSE_POINTS);
 
   await interaction.reply({ embeds: [systemEmbed('🔒 Closing ticket, making a transcript...')] });
 
@@ -133,7 +135,7 @@ async function requestClose(interaction) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
 
-  points.addPoints(interaction.user.id, POINTS_PER_ACTION);
+  points.addPoints(interaction.user.id, REQUEST_CLOSE_POINTS);
 
   const embed = new EmbedBuilder()
     .setDescription(`<@${meta.openerId}>, ${interaction.user} requested to close this ticket. Do you agree?`)
@@ -219,7 +221,7 @@ async function renameChannel(interaction, newName) {
     .replace(/[^a-z0-9-]/g, '-')
     .slice(0, 90);
 
-  points.addPoints(interaction.user.id, POINTS_PER_ACTION);
+  points.addPoints(interaction.user.id, RENAME_POINTS);
 
   const oldName = interaction.channel.name;
   await interaction.channel.setName(sanitized);
