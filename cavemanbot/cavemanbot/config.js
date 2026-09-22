@@ -170,6 +170,7 @@ module.exports = {
     partner_manager: {
       reviewChannelId: '1551789080050671748',
       pingRoleId: '1534029586231332986',
+      acceptedRoleId: '1534499230406938684',
       ticketCategoryId: '1551789632956665957',
     },
   },
