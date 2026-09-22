@@ -4,14 +4,16 @@ const { buildPanelEmbed, buildPanelRow } = require('../utils/vouchSendPanel');
 
 // /vouch-send user:@user — staff only (same role that manages tickets).
 // Posts a one-shot "Vouch request" panel in the channel the command was
-// run in: "@user, @runner is requesting a vouch" (the picked user, and
-// whoever ran the command). First person to click yes/no decides it — the
-// embed then updates in place to show the result and the buttons go away.
+// run in: "@user, @runner is requesting a vouch". @user (the one you pick)
+// is the one being ASKED to vouch — only they can answer. @runner is
+// whoever ran the command, and receives the vouch if @user says yes.
+// First click decides it — the embed then updates in place to show the
+// result and the buttons go away.
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('vouch-send')
-    .setDescription('Post a vouch request panel for a user')
-    .addUserOption((opt) => opt.setName('user').setDescription('Who is requesting a vouch').setRequired(true)),
+    .setDescription('Ask someone to vouch for you')
+    .addUserOption((opt) => opt.setName('user').setDescription('Who you want a vouch from').setRequired(true)),
 
   async execute(interaction) {
     if (!isStaff(interaction.member)) {
@@ -21,9 +23,13 @@ module.exports = {
     const target = interaction.options.getUser('user');
     const runnerId = interaction.user.id;
 
+    if (target.id === runnerId) {
+      return interaction.reply({ content: "You can't request a vouch from yourself.", ephemeral: true });
+    }
+
     await interaction.reply({
       embeds: [buildPanelEmbed(target.id, runnerId)],
-      components: [buildPanelRow(target.id)],
+      components: [buildPanelRow(target.id, runnerId)],
     });
   },
 };
