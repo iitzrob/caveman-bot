@@ -15,26 +15,26 @@ const {
 const APPLICATIONS_DESCRIPTION = `## Applications
 
 **Partner Manager Requirements:**
-> - Must be able to do 2+ partners a day
-> - Must always follow our partner requirements
-> - Do at least three waves per week (10+ servers) with us at the bottom everywhere, and we will only ping partners
+> Must be able to do 2+ partners a day
+> Must always follow our partner requirements
+> Do at least three waves per week (10+ servers) with us at the bottom everywhere, and we will only ping partners
 
 **Staff Requirements:**
-> - Must currently be active in some way
-> - Must have a balance of 150M+
-> - Be creative, active, mature, professional & friendly
-> - Have good experience
+> Must currently be active in some way
+> Must have a balance of 150M+
+> Be creative, active, mature, professional & friendly
+> Have good experience
 
 **Builder Requirements:**
-> - Must have access to a Java account and Litematica
-> - Must have a balance of 250M+
-> - Must have 25+ vouches or be trusted in some other way
+> Must have access to a Java account and Litematica
+> Must have a balance of 250M+
+> Must have 25+ vouches or be trusted in some other way
 
 **Note:**
-> - If you get denied, you can't apply again for 1 week
-> - If you ask any staff about your application, we will instantly deny it
-> - You must have 2FA enabled
-> - You must be 13+ to apply for any position`;
+> If you get denied, you can't apply again for 1 week
+> If you ask any staff about your application, we will instantly deny it
+> You must have 2FA enabled
+> You must be 13+ to apply for any position`;
 
 module.exports = {
   data: new SlashCommandBuilder()
