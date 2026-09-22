@@ -5,11 +5,11 @@ const donut = require('../utils/donutStats');
 const { isStaff } = require('../utils/permissions');
 
 const settings = {
-  pollSeconds: 60,
+  pollSeconds: 30,
   requireBoth: true,
   ...(config.payments || {}),
 };
-const POLL_MS = Math.max(20, Number(settings.pollSeconds) || 60) * 1000;
+const POLL_MS = Math.max(20, Number(settings.pollSeconds) || 30) * 1000;
 
 // If the balance lookup is failing right when time runs out, wait this long
 // for one good final check before calling the payment expired.
@@ -79,8 +79,8 @@ function buildEmbed(p) {
       .setFooter({ text: `ID ${p.id}` });
   } else if (p.status === 'expired') {
     embed
-      .setTitle('Payment Tracker — Expired')
-      .setDescription('Time ran out before the full amount was paid.')
+      .setTitle('Payment Tracker — Not Paid in Time')
+      .setDescription('The full amount was not paid before the deadline.')
       .setFooter({ text: `ID ${p.id}` });
   } else {
     embed
@@ -95,10 +95,6 @@ function buildButtons(p) {
   if (p.status !== 'active') return [];
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`payment_paid:${p.id}`)
-        .setLabel('Mark as Paid')
-        .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`payment_cancel:${p.id}`)
         .setLabel('Cancel')
@@ -181,8 +177,7 @@ async function checkPayment(p, lookup) {
   const measured = measure(p, payerRes, receiverRes);
   const pastDeadline = now >= p.deadline;
 
-  // The user may have pressed Mark as Paid / Cancel while we were waiting on
-  // the API, so look again before writing anything.
+  // The user may have pressed Cancel while we were waiting on the API, so look again before writing anything.
   const fresh = payments.get(p.id);
   if (!fresh || fresh.status !== 'active') return 'done';
 
@@ -311,7 +306,7 @@ function startPaymentTracker(client) {
 // ---- Buttons on the tracker message ----
 
 async function handlePaymentButton(interaction) {
-  const [action, id] = interaction.customId.split(':');
+  const [, id] = interaction.customId.split(':');
   const p = payments.get(id);
 
   if (!p) {
@@ -333,12 +328,13 @@ async function handlePaymentButton(interaction) {
     });
   }
 
-  const status = action === 'payment_paid' ? 'paid' : 'cancelled';
+  // The only button left on a tracker is Cancel — Mark as Paid was removed,
+  // payments now only resolve automatically once the balance check confirms
+  // it, or by running out the clock (see checkPayment/finish above).
   const updated = payments.update(p.id, {
-    status,
+    status: 'cancelled',
     finishedAt: Date.now(),
     resolvedBy: interaction.user.id,
-    ...(status === 'paid' ? { progress: p.amount } : {}),
   });
   await interaction.update({ embeds: [buildEmbed(updated)], components: [] });
 }
