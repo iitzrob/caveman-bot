@@ -209,7 +209,7 @@ module.exports = {
     },
     // false = keep only the highest reward role (lower ones get removed).
     // true = keep every reward role they've earned.
-    stackRoleRewards: true,
+    stackRoleRewards: false,
   },
 
   // ---- Sticky roles ----
