@@ -229,14 +229,15 @@ function withoutFooter(embed) {
   return EmbedBuilder.from(data);
 }
 
-// Button rows shown on a ticket message — no emojis on any of them. Claim
-// Ticket is green (Success), Rename Ticket is blurple (Primary), Request
-// Close is grey (Secondary) and Close Ticket is red (Danger). Claim Ticket
-// flips to Unclaim Ticket (grey) once claimed.
+// Button rows shown on a ticket message. Claim Ticket is green (Success),
+// Rename Ticket is blurple (Primary), Request Close is grey (Secondary) and
+// Close Ticket is red (Danger). Claim Ticket flips to Unclaim Ticket (grey)
+// once claimed. Rename's emoji is shared across every ticket row.
 function renameButton() {
   return new ButtonBuilder()
     .setCustomId('ticket_rename_btn')
     .setLabel('Rename Ticket')
+    .setEmoji({ id: '1549873873040965812', name: 'rename', animated: true })
     .setStyle(ButtonStyle.Primary);
 }
 
@@ -244,6 +245,7 @@ function requestCloseButton() {
   return new ButtonBuilder()
     .setCustomId('ticket_request_close_btn')
     .setLabel('Request Close')
+    .setEmoji({ id: '1549870086586761357', name: 'finnishedafter2hoursanimating', animated: true })
     .setStyle(ButtonStyle.Secondary);
 }
 
@@ -251,6 +253,7 @@ function closeButton() {
   return new ButtonBuilder()
     .setCustomId('ticket_close_btn')
     .setLabel('Close Ticket')
+    .setEmoji({ id: '1533798047618695308', name: 'Cross' })
     .setStyle(ButtonStyle.Danger);
 }
 
@@ -271,6 +274,7 @@ function unclaimedRow() {
     new ButtonBuilder()
       .setCustomId('ticket_claim_btn')
       .setLabel('Claim Ticket')
+      .setEmoji({ id: '1533798048856281168', name: 'Tick234234' })
       .setStyle(ButtonStyle.Success),
     renameButton(),
     requestCloseButton(),
