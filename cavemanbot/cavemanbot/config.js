@@ -178,16 +178,21 @@ module.exports = {
   // - channelId: where "<user> has reached level N" messages get posted.
   // - maxLevel: XP stops at this level (no more level-up messages after it).
   // - xpMin / xpMax: XP given per message (random in this range), at most
-  //   once every cooldownSeconds per person. 15-40 XP with a 60 second
-  //   cooldown are Arcane's defaults.
+  //   once every cooldownSeconds per person. Tuned so level 10 takes about
+  //   6.2 hours of chatting non-stop (one qualifying message every
+  //   cooldownSeconds) — 10-18 XP per message (avg 14) with a 60 second
+  //   cooldown. Real progress will be slower since nobody chats
+  //   nonstop; treat this as the fastest-possible pace, not the typical one.
+  //   (Arcane's own defaults are 15-40 XP with a 60 second cooldown, which
+  //   reaches level 10 in about 3.2 hours nonstop.)
   // - xpChannelIds: leave [] so messages in every channel count, or list
   //   channel ids to ONLY count messages in those channels.
   // Chatting inside ticket channels never earns XP.
   levels: {
     channelId: '1534029753948831776',
     maxLevel: 500,
-    xpMin: 15,
-    xpMax: 40,
+    xpMin: 10,
+    xpMax: 18,
     cooldownSeconds: 60,
     xpChannelIds: [],
 
@@ -254,17 +259,17 @@ module.exports = {
   //   money must go UP by the amount before it counts as paid (safest — one
   //   side alone can move for other reasons, like /sell or /shop).
   //   false = either side moving by the amount is enough.
-  // There's also a Mark as Paid button on every tracker for the times the
-  // balances can't prove it (e.g. the payer was earning money at the same time).
+  // Trackers only resolve automatically (paid via the balance check, or
+  // expired if time runs out) — the only button on one is Cancel.
   payments: {
-    statsChannelId: '1551189729909809154',
+    statsChannelId: '',
     statsBotId: '1321520416677695559',
     statsCommand: '!stats',
     replyTimeoutSeconds: 20,
     deleteMessages: true,
     moneyRegex: '',
     staffOnly: true,
-    pollSeconds: 60,
+    pollSeconds: 30,
     maxActive: 10,
     maxDurationDays: 7,
     requireBoth: true,
