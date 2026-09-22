@@ -83,32 +83,28 @@ module.exports = {
 
   // Per-ticket-type settings. Keys must match the `id` values in
   // data/ticketCategories.js. Each one can go to its own category channel
-  // and ping its own role. Leave pingRoleId as '' to only ping staffRoleId.
+  // and ping any number of roles. Leave pingRoleIds as [] to only ping
+  // staffRoleId.
   ticketCategories: {
     support: {
       categoryId: '1534029665382170814',
-      pingRoleId: '1534029589569998888',
-       pingRoleId: '1534029586231332986',
+      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
     },
     staff_report: {
       categoryId: '1534029678682181703',
-      pingRoleId: '1534029589569998888',
-       pingRoleId: '1534029586231332986',
+      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
     },
     buy_sell_spawner: {
       categoryId: '1534029675804889108',
-      pingRoleId: '1534029589569998888',
-       pingRoleId: '1534029586231332986',
+      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
     },
     giveaway_claim: {
       categoryId: '1534029669140271275',
-      pingRoleId: '1534029589569998888',
-       pingRoleId: '1534029586231332986',
+      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
     },
     giveaway_sponsor: {
       categoryId: '1534029672407367690',
-      pingRoleId: '1534029589569998888',
-       pingRoleId: '1534029586231332986',
+      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
     },
 
     // ---- Services panel (/service-panel) ----
@@ -118,42 +114,50 @@ module.exports = {
     //   embed text if the bot is in the server that owns them.
     // - categoryId: paste the Discord category for each service here. While
     //   it's '' the ticket channels are created with no category.
-    // - pingRoleId: every service ticket pings this one role.
+    // - pingRoleIds: every service ticket pings all of these roles.
     build: {
       emoji: '🏗️',
       categoryId: '1534029693697921225',
-       pingRoleId: '1534057976208560228',
-       pingRoleId: '1534029545957625978',
-       pingRoleId: '1534029542707171418',
-       pingRoleId: '1534484843101032538',
-       pingRoleId: '1534029586231332986',
+      pingRoleIds: [
+        '1534057976208560228',
+        '1534029545957625978',
+        '1534029542707171418',
+        '1534484843101032538',
+        '1534029586231332986',
+      ],
     },
     dig: {
       emoji: '⛏️',
-    categoryId: '1534029697099370597',
-       pingRoleId: '1534057976208560228',
-       pingRoleId: '1534029545957625978',
-       pingRoleId: '1534029542707171418',
-       pingRoleId: '1534484843101032538',
-       pingRoleId: '1534029586231332986',
+      categoryId: '1534029697099370597',
+      pingRoleIds: [
+        '1534057976208560228',
+        '1534029545957625978',
+        '1534029542707171418',
+        '1534484843101032538',
+        '1534029586231332986',
+      ],
     },
     mapart: {
       emoji: '🗺️',
-     categoryId: '1534029700601610401',
-       pingRoleId: '1534057976208560228',
-       pingRoleId: '1534029545957625978',
-       pingRoleId: '1534029542707171418',
-       pingRoleId: '1534484843101032538',
-       pingRoleId: '1534029586231332986',
+      categoryId: '1534029700601610401',
+      pingRoleIds: [
+        '1534057976208560228',
+        '1534029545957625978',
+        '1534029542707171418',
+        '1534484843101032538',
+        '1534029586231332986',
+      ],
     },
     regears: {
       emoji: '🛡️',
       categoryId: '1534029704275955713',
-       pingRoleId: '1534057976208560228',
-       pingRoleId: '1534029545957625978',
-       pingRoleId: '1534029542707171418',
-       pingRoleId: '1534484843101032538',
-       pingRoleId: '1534029586231332986',
+      pingRoleIds: [
+        '1534057976208560228',
+        '1534029545957625978',
+        '1534029542707171418',
+        '1534484843101032538',
+        '1534029586231332986',
+      ],
     },
   },
 
