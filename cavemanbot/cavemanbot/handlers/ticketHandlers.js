@@ -90,7 +90,9 @@ async function handleTicketOpen(interaction) {
 
   const guild = interaction.guild;
   const catCfg = config.ticketCategories[categoryId] || {};
-  const pingRoleId = catCfg.pingRoleId || config.staffRoleId;
+  const pingRoleIds = catCfg.pingRoleIds && catCfg.pingRoleIds.length
+    ? catCfg.pingRoleIds
+    : [config.staffRoleId];
 
   let channel, rolesWithAccess;
   try {
@@ -99,7 +101,7 @@ async function handleTicketOpen(interaction) {
       name: `${categoryDef.id.replace(/_/g, '-')}-${interaction.user.username}`,
       parentId: catCfg.categoryId,
       openerId: interaction.user.id,
-      roleIds: [config.staffRoleId, pingRoleId, config.alwaysCanTypeRoleId],
+      roleIds: [config.staffRoleId, ...pingRoleIds, config.alwaysCanTypeRoleId],
     }));
   } catch (err) {
     console.error(
@@ -134,8 +136,7 @@ async function handleTicketOpen(interaction) {
     )
     .setColor(0x2b2d31);
 
-  const pings = [`${interaction.user}`];
-  if (pingRoleId) pings.push(`<@&${pingRoleId}>`);
+  const pings = [`${interaction.user}`, ...pingRoleIds.map((id) => `<@&${id}>`)];
 
   try {
     await channel.send({
