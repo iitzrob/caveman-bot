@@ -19,6 +19,8 @@ const {
 const { handleTicketOpen } = require('./handlers/ticketHandlers');
 const { handleLevelMessage } = require('./handlers/levelHandlers');
 const { handleAfkMessage } = require('./handlers/afkHandlers');
+const { handleVouchMessage, handleScamVouchButton } = require('./handlers/vouchMessageHandler');
+const { handleVouchSendButton } = require('./handlers/vouchSendHandlers');
 const levels = require('./utils/levels');
 const { handleMemberAdd, handleMemberRemove, cacheAllMembers } = require('./handlers/stickyRoles');
 const { handleWelcome } = require('./handlers/welcomeHandlers');
@@ -152,6 +154,7 @@ client.on(Events.GuildMemberAdd, (member) => {
 client.on(Events.MessageCreate, (message) => {
   handleLevelMessage(message).catch((err) => console.error('[levels] Error handling message:', err));
   handleAfkMessage(message).catch((err) => console.error('[afk] Error handling message:', err));
+  handleVouchMessage(message).catch((err) => console.error('[vouches] Error handling message:', err));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -208,6 +211,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Buttons on a /track payment message (Cancel).
       if (interaction.customId.startsWith('payment_')) {
         return await handlePaymentButton(interaction);
+      }
+      if (interaction.customId.startsWith('scamvouch_confirm:') || interaction.customId.startsWith('scamvouch_cancel:')) {
+        return await handleScamVouchButton(interaction);
+      }
+      if (interaction.customId.startsWith('vouchsend_yes:') || interaction.customId.startsWith('vouchsend_no:')) {
+        return await handleVouchSendButton(interaction);
       }
       // application_yes / application_no / application_cancel buttons are
       // consumed directly by the awaitMessageComponent collectors inside
