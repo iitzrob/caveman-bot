@@ -34,7 +34,7 @@ module.exports = {
       .setTitle('🏆 Staff Leaderboard')
       .setDescription(lines.join('\n').slice(0, 4096))
       .setColor(0x2b2d31)
-      .setFooter({ text: 'Resets every Monday at 1:00 AM' })
+      .setFooter({ text: 'Earn points in tickets' })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
