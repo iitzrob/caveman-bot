@@ -67,7 +67,7 @@ async function closeChannel(interaction) {
 }
 
 // The actual closing work — transcript, DM to the opener, log message, then
-// deleting the channel. Shared by the Close Ticket button / /ticket-close and
+// deleting the channel. Shared by the Close Ticket button / /ticket close and
 // by the "Agree" button on a close request. The caller is responsible for
 // having already told the channel it's closing (reply / followUp) and for
 // any permission checks.
@@ -404,7 +404,7 @@ async function unclaimTicket(interaction) {
 
 // Rename Ticket button — opens a small modal asking for the new name, since
 // buttons can't collect text input directly. The modal submit calls the same
-// renameChannel() used by /ticket-rename and /rename, so behavior stays
+// renameChannel() used by /ticket rename and /rename, so behavior stays
 // identical no matter how staff trigger a rename.
 function renameModal() {
   const modal = new ModalBuilder().setCustomId('ticket_rename_modal').setTitle('Rename Ticket');
@@ -436,7 +436,7 @@ async function handleRenameModalSubmit(interaction) {
   await renameChannel(interaction, newName);
 }
 
-// /ticket-add user:<user> — staff only, adds someone to whatever ticket or
+// /ticket add user:<user> — staff only, adds someone to whatever ticket or
 // application-ticket channel the command is run in.
 async function addUserToTicket(interaction, user) {
   if (!isStaff(interaction.member)) {
