@@ -1,12 +1,12 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { isStaff } = require('../utils/permissions');
-const { buildPanelEmbed, buildPanelRow, votedOnPanel } = require('../utils/vouchSendPanel');
+const { buildPanelEmbed, buildPanelRow } = require('../utils/vouchSendPanel');
 
 // /vouch-send user:@user — staff only (same role that manages tickets).
-// Posts a "Vouch request" panel in the channel the command was run in;
-// anyone can click the yes/no buttons, and every "yes" click registers as
-// a real vouch for `user` (counts on /vouch-leaderboard same as normal
-// vouches) and gets announced in config.vouches.staffVouchChannelId.
+// Posts a one-shot "Vouch request" panel in the channel the command was
+// run in: "@user, @runner is requesting a vouch" (the picked user, and
+// whoever ran the command). First person to click yes/no decides it — the
+// embed then updates in place to show the result and the buttons go away.
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('vouch-send')
@@ -19,13 +19,11 @@ module.exports = {
     }
 
     const target = interaction.options.getUser('user');
+    const runnerId = interaction.user.id;
 
     await interaction.reply({
-      embeds: [buildPanelEmbed(target.id)],
+      embeds: [buildPanelEmbed(target.id, runnerId)],
       components: [buildPanelRow(target.id)],
     });
-
-    const message = await interaction.fetchReply();
-    votedOnPanel.set(message.id, new Set());
   },
 };
