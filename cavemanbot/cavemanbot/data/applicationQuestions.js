@@ -23,6 +23,12 @@ const builderQuestions = [
   { text: 'Do you understand that if you scam someone you will be demoted and get blacklisted forever on 50+ servers?' },
 ];
 
+const partnerManagerQuestions = [
+  { text: 'What servers are you PM (Partner Manager) in?' },
+  { text: 'Do you know how to do waves?', type: 'yesno' },
+  { text: "What's your IGN?" },
+];
+
 module.exports = {
   staff_helper: {
     label: 'Staff/Helper Applications',
@@ -35,5 +41,11 @@ module.exports = {
     value: 'builder',
     prefix: 'builder-app',
     questions: builderQuestions,
+  },
+  partner_manager: {
+    label: 'Partner Manager Applications',
+    value: 'partner_manager',
+    prefix: 'partner-manager-app',
+    questions: partnerManagerQuestions,
   },
 };
