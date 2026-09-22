@@ -34,7 +34,7 @@ module.exports = {
       .setTitle('🏆 Staff Leaderboard')
       .setDescription(lines.join('\n').slice(0, 4096))
       .setColor(0x2b2d31)
-      .setFooter({ text: 'Earn points in tickets' })
+      .setFooter({ text: 'Earn points in tickets — Rename: 3 pts, Close: 2 pts' })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
