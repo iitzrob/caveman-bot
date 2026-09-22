@@ -53,6 +53,25 @@ module.exports = {
 
   staffRoleId: '1534029589569998888',
 
+  // ---- Vouches ----
+  // - channelId: channel where people type "vouch @user" / "scam vouch @user".
+  // - scammerRoleId: role given out by /scam-vouch add.
+  // - staffVouchChannelId: channel /vouch-send announces confirmed vouches to.
+  // - reportCategoryId: category the scam-report ticket gets created under.
+  //   Leave '' for no category.
+  // - reportPingRoleId: role pinged in the scam-report ticket, on top of
+  //   staffRoleId. Leave '' to only ping staffRoleId.
+  // - higherUpsRoleId: only members with this role (or staff/Administrator)
+  //   can run /scam-vouch. Leave '' to let any staff member use it.
+  vouches: {
+    channelId: '1534029822509187174',
+    scammerRoleId: '1534029592824643734',
+    staffVouchChannelId: '1551828897920974909',
+    reportCategoryId: '',
+    reportPingRoleId: '',
+    higherUpsRoleId: '',
+  },
+
   // Role that always keeps SendMessages in a support ticket, even after
   // it's claimed and every other role gets locked out. This role is also
   // granted access to every new ticket when it's created.
