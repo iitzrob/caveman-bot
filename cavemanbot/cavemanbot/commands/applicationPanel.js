@@ -5,7 +5,6 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
 } = require('discord.js');
-const { bold } = require('../utils/textStyle');
 
 const RULES = [
   'Must be 14+ years old.',
@@ -16,7 +15,7 @@ const RULES = [
   'If denied, wait 2 weeks before reapplying.',
   'Asking staff to check your application will result in an instant denial.',
   'Staff decisions are final.',
-].map((rule, i) => bold(`${i + 1}. ${rule}`)).join('\n');
+].map((rule, i) => `${i + 1}. ${rule}`).join('\n');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -26,21 +25,21 @@ module.exports = {
 
   async execute(interaction) {
     const embed = new EmbedBuilder()
-      .setTitle(bold('Applications'))
+      .setTitle('Applications')
       .setColor(0x2b2d31)
       .setDescription(RULES);
 
     const row = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('application_select')
-        .setPlaceholder(bold('Select an application type'))
+        .setPlaceholder('Select an application type')
         .addOptions(
-          { label: bold('Staff/Helper Applications'), value: 'staff_helper' },
-          { label: bold('Builder Applications'), value: 'builder' }
+          { label: 'Staff/Helper Applications', value: 'staff_helper' },
+          { label: 'Builder Applications', value: 'builder' }
         )
     );
 
     await interaction.channel.send({ embeds: [embed], components: [row] });
-    await interaction.reply({ content: bold('Application panel posted.'), ephemeral: true });
+    await interaction.reply({ content: 'Application panel posted.', ephemeral: true });
   },
 };
