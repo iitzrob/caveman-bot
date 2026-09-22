@@ -243,7 +243,7 @@ async function startPayment(interaction) {
   // If Donut Stats shows rounded money (like 2.92B), small payments can't be seen.
   const coarsest = Math.max(payerStats.step, receiverStats.step);
   if (coarsest > 1 && amount < coarsest * 2) {
-    reply += `\n\nHeads up: Donut Stats only shows money rounded to the nearest ${payments.money(coarsest)}, so a payment this small may not show up. Use the **Mark as Paid** button if it doesn't.`;
+    reply += `\n\nHeads up: Donut Stats only shows money rounded to the nearest ${payments.money(coarsest)}, so a payment this small may not be detected automatically. It'll expire and show as not paid in time if that happens — double check with the payer/receiver directly.`;
   }
   await interaction.editReply(reply);
 }
