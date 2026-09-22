@@ -35,7 +35,7 @@ const {
   handleApplicationOpenTicket,
 } = require('./handlers/applicationHandlers');
 const { handleLeaderboardRoleSelect } = require('./handlers/leaderboardHandlers');
-const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
+const { handleBuildFinishAgree, handleBuildFinishDisagree } = require('./utils/buildFinishActions');const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
 
 const client = new Client({
   intents: [
@@ -180,6 +180,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       if (interaction.customId.startsWith('ticket_close_disagree:')) {
         return await handleCloseDisagree(interaction);
+      }
+      if (interaction.customId.startsWith('build_finish_agree:')) {
+        return await handleBuildFinishAgree(interaction);
+      }
+      if (interaction.customId.startsWith('build_finish_disagree:')) {
+        return await handleBuildFinishDisagree(interaction);
       }
       if (interaction.customId === 'ticket_claim_btn') {
         return await claimTicket(interaction);
