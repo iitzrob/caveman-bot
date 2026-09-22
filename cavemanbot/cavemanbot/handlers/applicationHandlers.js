@@ -145,6 +145,29 @@ function getOpenApplication(interaction) {
   return { appId, meta };
 }
 
+// Builds the DM embed sent to the applicant once staff make a decision —
+// green "Application Accepted" or red "Application Denied", naming the
+// application type and the staff member who decided it. Denials also note
+// the 1-week reapply wait. A Reason field is added underneath when staff
+// gave one.
+function applicantDecisionEmbed(action, meta, actor, reason) {
+  const appConfig = applicationQuestions[meta.category];
+  const label = appConfig ? appConfig.label : 'your application';
+
+  const embed = new EmbedBuilder()
+    .setColor(DECISION_COLORS[action])
+    .setTitle(action === 'accepted' ? 'Application Accepted' : 'Application Denied')
+    .setDescription(
+      action === 'accepted'
+        ? `Your application for "${label}" has been accepted by ${actor}.`
+        : `Your application for "${label}" has been denied by ${actor}. You can reapply in 1 week.`
+    );
+
+  if (reason) embed.addFields({ name: 'Reason', value: reason });
+
+  return embed;
+}
+
 async function processAccept(interaction, appId, meta, reason) {
   const appCfg = config.applicationCategories[meta.category] || {};
   const roleId = appCfg.acceptedRoleId;
@@ -167,10 +190,7 @@ async function processAccept(interaction, appId, meta, reason) {
 
   try {
     const applicant = await interaction.client.users.fetch(meta.openerId);
-    const msg = reason
-      ? `🎉 Your application has been **accepted**!\n**Reason:** ${reason}`
-      : '🎉 Your application has been **accepted**! Staff will follow up if there are next steps.';
-    await applicant.send(msg);
+    await applicant.send({ embeds: [applicantDecisionEmbed('accepted', meta, interaction.user, reason)] });
   } catch {
     // Applicant has DMs closed — nothing more we can do.
   }
@@ -183,10 +203,7 @@ async function processDeny(interaction, appId, meta, reason) {
 
   try {
     const applicant = await interaction.client.users.fetch(meta.openerId);
-    const msg = reason
-      ? `Your application was **denied**.\n**Reason:** ${reason}`
-      : "Your application was **denied**. You're welcome to apply again in the future.";
-    await applicant.send(msg);
+    await applicant.send({ embeds: [applicantDecisionEmbed('denied', meta, interaction.user, reason)] });
   } catch {
     // Applicant has DMs closed — nothing more we can do.
   }
