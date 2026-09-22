@@ -20,7 +20,8 @@ function buildEmbed(target, entries, page, totalPages) {
   const description = pageEntries.length
     ? pageEntries
         .map((entry, i) => {
-          const line = `${start + i + 1}. <@${entry.voucherId}>`;
+          const tag = entry.scam ? ' — ⚠️ SCAM REPORT' : '';
+          const line = `${start + i + 1}. <@${entry.voucherId}>${tag}`;
           return `${line}\n${entry.comment ? entry.comment : 'No comment left.'}`;
         })
         .join('\n\n')
