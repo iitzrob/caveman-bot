@@ -1,332 +1,276 @@
-// Only the token / client id / guild id come from Railway (Variables tab).
-// Everything else is set directly below — edit the values in this file.
-try {
-  require('dotenv').config();
-} catch {
-  // dotenv not installed - fine on Railway, where variables are injected directly.
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const { Client, GatewayIntentBits, Partials, Collection, Events, ChannelType } = require('discord.js');
+const cron = require('node-cron');
+
+const config = require('./config');
+const points = require('./utils/points');
+const {
+  closeChannel,
+  requestClose,
+  handleCloseAgree,
+  handleCloseDisagree,
+  claimTicket,
+  unclaimTicket,
+  handleRenameButton,
+  handleRenameModalSubmit,
+} = require('./utils/ticketActions');
+const { handleTicketOpen } = require('./handlers/ticketHandlers');
+const { handleLevelMessage } = require('./handlers/levelHandlers');
+const { handleAfkMessage } = require('./handlers/afkHandlers');
+const { handleVouchMessage, handleScamVouchButton } = require('./handlers/vouchMessageHandler');
+const { handleVouchSendButton } = require('./handlers/vouchSendHandlers');
+const levels = require('./utils/levels');
+const { handleMemberAdd, handleMemberRemove, cacheAllMembers } = require('./handlers/stickyRoles');
+const { handleWelcome } = require('./handlers/welcomeHandlers');
+const {
+  handleApplicationSelect,
+  handleApplicationAccept,
+  handleApplicationAcceptReason,
+  handleApplicationAcceptReasonModal,
+  handleApplicationDeny,
+  handleApplicationDenyReason,
+  handleApplicationDenyReasonModal,
+  handleApplicationOpenTicket,
+} = require('./handlers/applicationHandlers');
+const { handleLeaderboardRoleSelect } = require('./handlers/leaderboardHandlers');
+const { handleBuildFinishAgree, handleBuildFinishDisagree } = require('./utils/buildFinishActions');const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+  ],
+  // Needed so DM channels/messages arrive properly — applications are now
+  // answered over DM instead of in a per-applicant guild channel.
+  partials: [Partials.Channel, Partials.Message],
+});
+
+// Load slash commands
+client.commands = new Collection();
+const commandsPath = path.join(__dirname, 'commands');
+for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith('.js'))) {
+  const command = require(path.join(commandsPath, file));
+  client.commands.set(command.data.name, command);
 }
 
-module.exports = {
-  // ---- These three come from Railway's Variables tab ----
-  token: process.env.BOT_TOKEN,
-  clientId: process.env.CLIENT_ID,
-  guildId: process.env.GUILD_ID,
+// Checks every category id in config.js against the server the bot is in and
+// prints a warning naming the exact setting if one is wrong. A bad id is what
+// causes "parent_id[CHANNEL_PARENT_INVALID]: Category does not exist" when
+// someone opens a ticket. Empty ('') ids are skipped on purpose — those
+// tickets are just created without a category.
+async function checkConfiguredCategories(c) {
+  const guild = await c.guilds.fetch(config.guildId).catch(() => null);
+  if (!guild) {
+    console.warn(`[config check] The bot isn't in the server GUILD_ID=${config.guildId}.`);
+    return;
+  }
 
-  // ---- Everything below: edit these values directly ----
+  const channels = await guild.channels.fetch().catch(() => null);
+  if (!channels) return;
 
-  // ---- Welcome message ----
-  // Sent as a plain text message (NOT an embed) whenever someone joins.
-  // - enabled: set to false to turn this off entirely.
-  // - channelId: paste the channel to post welcome messages in.
-  // - message: {user} mentions the new member, {guild} is the server name,
-  //   {ordinal} is their spot in the member count (e.g. "42nd").
-  welcome: {
-    enabled: true,
-    channelId: '1534029743433715872',
-    message: 'Welcome {user} to {guild}. You are the {ordinal} member. We hope you have a great time!',
+  const toCheck = [];
+  for (const [key, v] of Object.entries(config.ticketCategories || {})) {
+    toCheck.push([`ticketCategories.${key}.categoryId`, v.categoryId]);
+  }
+  for (const [key, v] of Object.entries(config.applicationCategories || {})) {
+    toCheck.push([`applicationCategories.${key}.ticketCategoryId`, v.ticketCategoryId]);
+  }
+
+  let problems = 0;
+  for (const [label, id] of toCheck) {
+    if (!id) continue;
+    const channel = channels.get(id);
+    if (!channel) {
+      problems++;
+      console.warn(`[config check] ${label} = "${id}" — no channel with that id exists in "${guild.name}".`);
+    } else if (channel.type !== ChannelType.GuildCategory) {
+      problems++;
+      console.warn(`[config check] ${label} = "${id}" — that's the channel #${channel.name}, not a category.`);
+    }
+  }
+  if (!problems) console.log('[config check] All category ids in config.js look good.');
+}
+
+// Same idea for the level role rewards: warns about any role id that doesn't
+// exist, or that the bot can't hand out (its own role has to sit above them
+// and it needs Manage Roles) — the usual reason role rewards silently fail.
+async function checkLevelRoles(c) {
+  const rewards = levels.getRoleRewards();
+  if (!rewards.length) return;
+
+  const guild = await c.guilds.fetch(config.guildId).catch(() => null);
+  if (!guild) return;
+  const roles = await guild.roles.fetch().catch(() => null);
+  if (!roles) return;
+
+  let problems = 0;
+  for (const { level, roleId } of rewards) {
+    const role = roles.get(roleId);
+    if (!role) {
+      problems++;
+      console.warn(`[config check] levels.roleRewards[${level}] = "${roleId}" — no role with that id exists in "${guild.name}".`);
+    } else if (!role.editable) {
+      problems++;
+      console.warn(
+        `[config check] levels.roleRewards[${level}] — the bot can't give out @${role.name}. Move the bot's role above it in Server Settings > Roles and make sure the bot has Manage Roles.`
+      );
+    }
+  }
+  if (!problems) console.log('[config check] All level role rewards look good.');
+}
+
+client.once(Events.ClientReady, async (c) => {
+  console.log(`Logged in as ${c.user.tag}`);
+  await checkConfiguredCategories(c).catch((err) => console.error('[config check] failed:', err));
+  await checkLevelRoles(c).catch((err) => console.error('[config check] failed:', err));
+  await cacheAllMembers(c).catch((err) => console.error('[sticky roles] failed to load members:', err));
+  // Payment tracker: picks up any payments still being tracked from before a restart.
+  startPaymentTracker(c);
+});
+
+// Sticky roles: save a member's roles when they leave, give them back if they rejoin.
+client.on(Events.GuildMemberRemove, (member) => {
+  try {
+    handleMemberRemove(member);
+  } catch (err) {
+    console.error('[sticky roles] Error saving roles on leave:', err);
+  }
+});
+client.on(Events.GuildMemberAdd, (member) => {
+  handleMemberAdd(member).catch((err) =>
+    console.error(`[sticky roles] Couldn't restore roles for ${member.user.tag}:`, err.message)
+  );
+  handleWelcome(member).catch((err) =>
+    console.error(`[welcome] Couldn't send welcome message for ${member.user.tag}:`, err.message)
+  );
+});
+
+// Levels: every message can earn XP (see utils/levels.js for the rules).
+client.on(Events.MessageCreate, (message) => {
+  handleLevelMessage(message).catch((err) => console.error('[levels] Error handling message:', err));
+  handleAfkMessage(message).catch((err) => console.error('[afk] Error handling message:', err));
+  handleVouchMessage(message).catch((err) => console.error('[vouches] Error handling message:', err));
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (interaction.isChatInputCommand()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command) return;
+      return await command.execute(interaction);
+    }
+
+    if (interaction.isButton()) {
+      if (interaction.customId.startsWith('ticket_open_')) {
+        return await handleTicketOpen(interaction);
+      }
+      if (interaction.customId === 'ticket_close_btn') {
+        return await closeChannel(interaction);
+      }
+      if (interaction.customId === 'ticket_request_close_btn') {
+        return await requestClose(interaction);
+      }
+      if (interaction.customId.startsWith('ticket_close_agree:')) {
+        return await handleCloseAgree(interaction);
+      }
+      if (interaction.customId.startsWith('ticket_close_disagree:')) {
+        return await handleCloseDisagree(interaction);
+      }
+      if (interaction.customId.startsWith('build_finish_agree:')) {
+        return await handleBuildFinishAgree(interaction);
+      }
+      if (interaction.customId.startsWith('build_finish_disagree:')) {
+        return await handleBuildFinishDisagree(interaction);
+      }
+      if (interaction.customId === 'ticket_claim_btn') {
+        return await claimTicket(interaction);
+      }
+      if (interaction.customId === 'ticket_unclaim_btn') {
+        return await unclaimTicket(interaction);
+      }
+      if (interaction.customId === 'ticket_rename_btn') {
+        return await handleRenameButton(interaction);
+      }
+      // Order matters: the "_reason" variants must be checked before their
+      // plain counterparts since e.g. 'application_accept_reason:' also
+      // starts with 'application_accept' (but not with 'application_accept:').
+      if (interaction.customId.startsWith('application_accept_reason:')) {
+        return await handleApplicationAcceptReason(interaction);
+      }
+      if (interaction.customId.startsWith('application_accept:')) {
+        return await handleApplicationAccept(interaction);
+      }
+      if (interaction.customId.startsWith('application_deny_reason:')) {
+        return await handleApplicationDenyReason(interaction);
+      }
+      if (interaction.customId.startsWith('application_deny:')) {
+        return await handleApplicationDeny(interaction);
+      }
+      if (interaction.customId.startsWith('application_open_ticket:')) {
+        return await handleApplicationOpenTicket(interaction);
+      }
+      // Buttons on a /track payment message (Cancel).
+      if (interaction.customId.startsWith('payment_')) {
+        return await handlePaymentButton(interaction);
+      }
+      if (interaction.customId.startsWith('scamvouch_confirm:') || interaction.customId.startsWith('scamvouch_cancel:')) {
+        return await handleScamVouchButton(interaction);
+      }
+      if (interaction.customId.startsWith('vouchsend_yes:') || interaction.customId.startsWith('vouchsend_no:')) {
+        return await handleVouchSendButton(interaction);
+      }
+      // application_yes / application_no / application_cancel buttons are
+      // consumed directly by the awaitMessageComponent collectors inside
+      // utils/applicationFlow.js — nothing to do for them here.
+      return;
+    }
+
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId === 'ticket_rename_modal') {
+        return await handleRenameModalSubmit(interaction);
+      }
+      if (interaction.customId.startsWith('application_accept_reason_modal:')) {
+        return await handleApplicationAcceptReasonModal(interaction);
+      }
+      if (interaction.customId.startsWith('application_deny_reason_modal:')) {
+        return await handleApplicationDenyReasonModal(interaction);
+      }
+      // ticket_modal_* (the per-category intake form) is consumed directly
+      // by the awaitModalSubmit collector inside handlers/ticketHandlers.js
+      // — nothing to do for it here.
+      return;
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'application_select') {
+      return await handleApplicationSelect(interaction);
+    }
+
+    if (interaction.isRoleSelectMenu() && interaction.customId === 'leaderboard_role_select') {
+      return await handleLeaderboardRoleSelect(interaction);
+    }
+  } catch (err) {
+    console.error('Interaction error:', err);
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+      await interaction
+        .reply({ content: 'Something went wrong while handling that.', ephemeral: true })
+        .catch(() => {});
+    }
+  }
+});
+
+// Weekly points reset — every Monday at 1:00 AM in the configured timezone.
+cron.schedule(
+  '0 1 * * 1',
+  () => {
+    points.resetAll();
+    console.log('[Points] Weekly leaderboard has been reset.');
   },
+  { timezone: config.timezone }
+);
 
-  // The text shown in the embed when /ticket-panel is run. Edit this
-  // directly to change the wording — it's sent exactly as written below.
-  // The buttons themselves (labels + emoji) still come from
-  // data/ticketCategories.js, this is just the description text above them.
-  ticketPanelDescription:
-`### <:63756redticket:1549053777854726246> Support
-
-> **Open this if you want help or assistance with anything.**
-
-### <:Scammer:1549428770325405706> Staff Report
-
-> **Open this if a staff / builder did something wrong.**
-
-### <:Spawner1:1549428700238315540> Buy/Sell Spawner
-
-> **Open this if you want to buy/sell spawners.**
-
-### <a:3899gift:1537021187450871859> Giveaway Claim
-
-> **Open this to claim a giveaway you won.**
-
-### <:1st246234:1533798054681907291> Giveaway Sponsor
-
-> **Open this if you want to sponsor a giveaway.**`,
-
-  staffRoleId: '1534029589569998888',
-
-  // ---- Vouches ----
-  // - channelId: channel where people type "vouch @user" / "scam vouch @user".
-  // - scammerRoleId: role given out by /scam-vouch add.
-  // - staffVouchChannelId: channel /vouch-send announces confirmed vouches to.
-  // - reportCategoryId: category the scam-report ticket gets created under.
-  //   Leave '' for no category.
-  // - reportPingRoleId: role pinged in the scam-report ticket, on top of
-  //   staffRoleId. Leave '' to only ping staffRoleId.
-  // - higherUpsRoleId: only members with this role (or staff/Administrator)
-  //   can run /scam-vouch. Leave '' to let any staff member use it.
-  vouches: {
-    channelId: '1534029822509187174',
-    scammerRoleId: '1534029592824643734',
-    staffVouchChannelId: '1551828897920974909',
-    reportCategoryId: '',
-    reportPingRoleId: '',
-    higherUpsRoleId: '',
-  },
-
-  // Role that always keeps SendMessages in a support ticket, even after
-  // it's claimed and every other role gets locked out. This role is also
-  // granted access to every new ticket when it's created.
-  alwaysCanTypeRoleId: '1534029586231332986',
-
-  // Channel where a copy of every ticket's transcript gets posted when it's
-  // closed (in addition to DMing it to whoever opened the ticket).
-  ticketLogChannelId: '1534030311992721478',
-
-  // ---- Anti-nuke ----
-  // Two protections:
-  // 1) If the SAME person executes banThreshold bans within banWindowMs,
-  //    they get permanently banned too (catches a compromised/rogue account
-  //    with Ban Members going on a spree).
-  // 2) Anyone who pings @everyone, @here, or an id in protectedMentionIds
-  //    (checked as both a role id and a user id) gets permanently banned
-  //    instantly.
-  // - enabled: set to false to turn both off entirely.
-  // - exemptRoleIds / exemptUserIds: NEVER auto-banned by this system, no
-  //   matter what they do. The server owner is always exempt automatically.
-  //   Leave these empty and ANY staff member (including you) doing 3 bans
-  //   in 5 minutes during a real raid, or pinging @everyone for a real
-  //   announcement, will also get banned — add your trusted staff role(s)
-  //   and/or your own user id here to avoid that.
-  // - logChannelId: where anti-nuke bans get announced. Leave '' to skip.
-  // Requires the bot to have "View Audit Log" and "Ban Members" permissions,
-  // and its role positioned above whoever it needs to be able to ban.
-  antiNuke: {
-    enabled: true,
-    banThreshold: 3,
-    banWindowMs: 5 * 60 * 1000,
-    protectedMentionIds: ['1534029599795712010'],
-    exemptRoleIds: [],
-    exemptUserIds: [],
-    logChannelId: '',
-  },
-
-  // Per-ticket-type settings. Keys must match the `id` values in
-  // data/ticketCategories.js. Each one can go to its own category channel
-  // and ping any number of roles. Leave pingRoleIds as [] to only ping
-  // staffRoleId.
-  ticketCategories: {
-    support: {
-      categoryId: '1534029665382170814',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-    staff_report: {
-      categoryId: '1534029678682181703',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-    buy_sell_spawner: {
-      categoryId: '1534029675804889108',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-    giveaway_claim: {
-      categoryId: '1534029669140271275',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-    giveaway_sponsor: {
-      categoryId: '1534029672407367690',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-
-    // ---- Services panel (/service-panel) ----
-    // Keys match the `id` values in data/serviceCategories.js.
-    // - emoji: shown on the button AND next to the name in the panel embed.
-    //   Normal emojis always show; custom server emojis only show in the
-    //   embed text if the bot is in the server that owns them.
-    // - categoryId: paste the Discord category for each service here. While
-    //   it's '' the ticket channels are created with no category.
-    // - pingRoleIds: every service ticket pings all of these roles.
-    build: {
-      emoji: '<:BlocksPlaced52234234:1533798033320575158>',
-      categoryId: '1534029693697921225',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-    dig: {
-      emoji: '<:BlocksBroken5234234:1533798031944843408>',
-      categoryId: '1534029697099370597',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-    mapart: {
-      emoji: '<:Map:1551849803141615667>',
-      categoryId: '1534029700601610401',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-    regears: {
-      emoji: '<:shulker:1551849753749360735>',
-      categoryId: '1534029704275955713',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-  },
-
-  // Title of the embed posted by /service-panel.
-  servicePanelTitle: "Donut District's DonutSMP Services",
-
-  // Per-application-type settings. Keys must match the keys in
-  // data/applicationQuestions.js (staff_helper, builder, partner_manager).
-  // - reviewChannelId: an EXISTING channel (NOT a category) where finished
-  //   applications get posted with Accept/Decline buttons. Make this
-  //   staff-only — applicants never see it, they answer questions over DM
-  //   with the bot instead.
-  // - pingRoleId: role pinged in reviewChannelId when a submission lands,
-  //   and also the role pinged in the ticket created by the "Open a Ticket"
-  //   button on an application
-  // - acceptedRoleId: role given to the applicant when Accepted (leave '' to skip)
-  // - ticketCategoryId: category the "Open a Ticket" button creates its
-  //   channel under (staff can open this from the application review message
-  //   to pull the applicant into a channel before deciding)
-  applicationCategories: {
-    staff_helper: {
-      reviewChannelId: '1534029928683798640',
-      pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1535942602258522132',
-      ticketCategoryId: '1534867123266912299',
-    },
-    builder: {
-      reviewChannelId: '1534029932563529828',
-      pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1535942667375087639',
-      ticketCategoryId: '1534917203768643775',
-    },
-    partner_manager: {
-      reviewChannelId: '1551789080050671748',
-      pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1534499230406938684',
-      ticketCategoryId: '1551789632956665957',
-    },
-  },
-
-  // ---- Levels ----
-  // - channelId: where "<user> has reached level N" messages get posted.
-  // - maxLevel: XP stops at this level (no more level-up messages after it).
-  // - xpMin / xpMax: XP given per message (random in this range), at most
-  //   once every cooldownSeconds per person. Tuned so level 10 takes about
-  //   6.2 hours of chatting non-stop (one qualifying message every
-  //   cooldownSeconds) — 10-18 XP per message (avg 14) with a 60 second
-  //   cooldown. Real progress will be slower since nobody chats
-  //   nonstop; treat this as the fastest-possible pace, not the typical one.
-  //   (Arcane's own defaults are 15-40 XP with a 60 second cooldown, which
-  //   reaches level 10 in about 3.2 hours nonstop.)
-  // - xpChannelIds: leave [] so messages in every channel count, or list
-  //   channel ids to ONLY count messages in those channels.
-  // Chatting inside ticket channels never earns XP.
-  levels: {
-    channelId: '1534029753948831776',
-    maxLevel: 500,
-    xpMin: 10,
-    xpMax: 18,
-    cooldownSeconds: 60,
-    xpChannelIds: [],
-
-    // Role rewards: paste the role ID for each level (leave '' to skip a
-    // level). On a level-up the member gets the highest reward role they've
-    // reached. The bot needs the Manage Roles permission, and its own role
-    // must sit ABOVE these roles in Server Settings > Roles.
-    roleRewards: {
-      3: '1534061530713292892',
-      6: '1534061673525280918',
-      9: '1534061765082742875',
-      12: '1534061849832718397',
-      15: '1534061982926241793',
-      18: '1534062082050363472',
-      21: '1534062335738511463',
-      24: '1534064671462654052',
-      27: '1534064768472715316',
-      30: '1534064837988978829',  
-    },
-    // false = keep only the highest reward role (lower ones get removed).
-    // true = keep every reward role they've earned.
-    stackRoleRewards: false,
-  },
-
-  // ---- Sticky roles ----
-  // When someone leaves and rejoins, the bot gives back the roles they had.
-  // - enabled: set to false to turn this off.
-  // - ignoreRoleIds: roles that should NOT come back (paste role ids, e.g. your
-  //   staff roles, if you'd rather hand those out again by hand).
-  stickyRoles: {
-    enabled: true,
-    ignoreRoleIds: [],
-  },
-
-  // ---- Payment tracker (/track payment) ----
-  // The bot finds out how much money the payer and the receiver have by
-  // running the Donut Stats bot's !stats command (https://www.donutstats.net/)
-  // and reading its reply. It does that when the payment is started and again
-  // every pollSeconds, until the amount has moved or the time runs out.
-  //
-  // Setup: this bot has to be in the server where the Donut Stats bot is, and
-  // needs View Channel, Send Messages and Read Message History in the channel
-  // below (plus Manage Messages if you want it to clean up after itself).
-  // Use a channel nobody else chats in — the bot posts "!stats <name>" there.
-  // Run /track test to check the setup.
-  //
-  // - statsChannelId: the channel (in the Donut Stats server) where the bot
-  //   runs the command. Right-click the channel > Copy Channel ID.
-  // - statsBotId: the Donut Stats bot's user id. Optional, but stops the bot
-  //   from mistaking some other bot's message for the answer.
-  // - statsCommand: what gets typed before the name.
-  // - replyTimeoutSeconds: how long to wait for the Donut Stats bot to answer.
-  // - deleteMessages: true = the bot deletes its "!stats" message and the
-  //   answer afterwards (only works where it has Manage Messages).
-  // - moneyRegex: leave '' to auto-detect "Money: ..." in the reply. If
-  //   /track test can't read the reply, put your own pattern here as a string.
-  //   Group 1 must be the number and group 2 the optional k/m/b suffix.
-  // - staffOnly: true = only staff can run /track payment.
-  // - pollSeconds: how often balances are re-checked (minimum 20). Each check
-  //   is two !stats commands per payment, so keep this reasonable.
-  // - maxActive: most payments that can be tracked at the same time.
-  // - maxDurationDays: longest "time to pay" someone can set.
-  // - requireBoth: true = the payer's money must go DOWN and the receiver's
-  //   money must go UP by the amount before it counts as paid (safest — one
-  //   side alone can move for other reasons, like /sell or /shop).
-  //   false = either side moving by the amount is enough.
-  // Trackers only resolve automatically (paid via the balance check, or
-  // expired if time runs out) — the only button on one is Cancel.
-  payments: {
-    statsChannelId: '1551805869862162512',
-    statsBotId: '1321520416677695559',
-    statsCommand: '!stats',
-    replyTimeoutSeconds: 20,
-    deleteMessages: true,
-    moneyRegex: '',
-    staffOnly: true,
-    pollSeconds: 30,
-    maxActive: 10,
-    maxDurationDays: 7,
-    requireBoth: true,
-  },
-
-  // Timezone for the weekly points reset (Monday 1:00 AM).
-  timezone: 'Europe/Berlin',
-};
+client.login(config.token);
