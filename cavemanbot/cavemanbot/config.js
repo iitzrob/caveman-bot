@@ -81,6 +81,34 @@ module.exports = {
   // closed (in addition to DMing it to whoever opened the ticket).
   ticketLogChannelId: '1534030311992721478',
 
+  // ---- Anti-nuke ----
+  // Two protections:
+  // 1) If the SAME person executes banThreshold bans within banWindowMs,
+  //    they get permanently banned too (catches a compromised/rogue account
+  //    with Ban Members going on a spree).
+  // 2) Anyone who pings @everyone, @here, or an id in protectedMentionIds
+  //    (checked as both a role id and a user id) gets permanently banned
+  //    instantly.
+  // - enabled: set to false to turn both off entirely.
+  // - exemptRoleIds / exemptUserIds: NEVER auto-banned by this system, no
+  //   matter what they do. The server owner is always exempt automatically.
+  //   Leave these empty and ANY staff member (including you) doing 3 bans
+  //   in 5 minutes during a real raid, or pinging @everyone for a real
+  //   announcement, will also get banned — add your trusted staff role(s)
+  //   and/or your own user id here to avoid that.
+  // - logChannelId: where anti-nuke bans get announced. Leave '' to skip.
+  // Requires the bot to have "View Audit Log" and "Ban Members" permissions,
+  // and its role positioned above whoever it needs to be able to ban.
+  antiNuke: {
+    enabled: true,
+    banThreshold: 3,
+    banWindowMs: 5 * 60 * 1000,
+    protectedMentionIds: ['1534029599795712010'],
+    exemptRoleIds: [],
+    exemptUserIds: [],
+    logChannelId: '',
+  },
+
   // Per-ticket-type settings. Keys must match the `id` values in
   // data/ticketCategories.js. Each one can go to its own category channel
   // and ping any number of roles. Leave pingRoleIds as [] to only ping
