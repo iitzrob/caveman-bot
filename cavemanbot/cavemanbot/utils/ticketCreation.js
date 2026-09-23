@@ -215,9 +215,11 @@ async function renameChannel(interaction, newName) {
   }
 
   const sanitized = newName
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{L}\p{N}\p{Emoji_Presentation}\p{Extended_Pictographic}\u200d\ufe0f\u{1F3FB}-\u{1F3FF}_-]/gu, '')
     .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .slice(0, 90);
+    .slice(0, 90) || 'ticket';
 
   const oldName = interaction.channel.name;
   await interaction.channel.setName(sanitized);
