@@ -29,6 +29,13 @@ const partnerManagerQuestions = [
   { text: "What's your IGN?" },
 ];
 
+const mediaManagerQuestions = [
+  { text: 'What is your Social Account (Send links)' },
+  { text: 'How many followers/subscribers do you have?' },
+  { text: 'Are you able to do 1-2 vids a week?' },
+  { text: 'Are you committed to help this server grow?', type: 'yesno' },
+];
+
 module.exports = {
   staff_helper: {
     label: 'Staff/Helper Applications',
@@ -47,5 +54,11 @@ module.exports = {
     value: 'partner_manager',
     prefix: 'partner-manager-app',
     questions: partnerManagerQuestions,
+  },
+  media_manager: {
+    label: 'Media Manager Applications',
+    value: 'media_manager',
+    prefix: 'media-manager-app',
+    questions: mediaManagerQuestions,
   },
 };
