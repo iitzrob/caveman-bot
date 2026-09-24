@@ -232,8 +232,8 @@ module.exports = {
     media_manager: {
       reviewChannelId: '1552639019232395344',
       pingRoleId: '1534029586231332986',
-      acceptedRoleId: '',
-      ticketCategoryId: '',
+      acceptedRoleId: '1534029586231332986',
+      ticketCategoryId: '1552665115206352966',
     },
   },
 
