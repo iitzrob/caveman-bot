@@ -38,6 +38,9 @@ function renderBoardText(board) {
   return out;
 }
 
+// Every cell label is an emoji (❌ / ⭕ / ⬜) so every button renders the
+// same width — mixing an emoji with a blank/zero-width label is what made
+// buttons change size between empty and filled cells.
 function buildBoardButtons(board, locked) {
   const rows = [];
   for (let r = 0; r < 3; r++) {
@@ -48,7 +51,7 @@ function buildBoardButtons(board, locked) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`ttt_${i}`)
-          .setLabel(val === 'X' ? '❌' : val === 'O' ? '⭕' : '\u200b')
+          .setLabel(val === 'X' ? '❌' : val === 'O' ? '⭕' : '⬜')
           .setStyle(
             val === 'X' ? ButtonStyle.Danger
               : val === 'O' ? ButtonStyle.Primary
@@ -85,8 +88,7 @@ function buildGameEmbed({ playerX, playerO, turn, board, result }) {
     .setTimestamp();
 
   if (result === 'draw') {
-    embed.setColor(0x95a5a6)
-      .setFooter({ text: "It's a draw! 🤝" });
+    embed.setColor(0x95a5a6).setFooter({ text: "It's a draw! 🤝" });
   } else if (result === 'X' || result === 'O') {
     const winner = result === 'X' ? playerX : playerO;
     embed.setColor(0x2ecc71)
@@ -100,6 +102,20 @@ function buildGameEmbed({ playerX, playerO, turn, board, result }) {
   }
 
   return embed;
+}
+
+function expiredEmbed(opponent, challenger) {
+  return new EmbedBuilder()
+    .setColor(0x95a5a6)
+    .setTitle('⏱️ Duel Expired')
+    .setDescription(`${opponent} didn't respond in time. The duel from ${challenger} has expired.`);
+}
+
+function deniedEmbed(opponent, challenger) {
+  return new EmbedBuilder()
+    .setColor(0xe74c3c)
+    .setTitle('❌ Duel Denied')
+    .setDescription(`${opponent} denied the challenge from ${challenger}.`);
 }
 
 module.exports = {
@@ -147,9 +163,12 @@ module.exports = {
       fetchReply: true,
     });
 
+    // Tracks whether the opponent has already accepted/denied, so the
+    // timeout branch can never fire after a real response was handled.
+    let responded = false;
+
     const challengeCollector = challengeMessage.createMessageComponentCollector({
       time: CHALLENGE_TIMEOUT_MS,
-      max: 1,
       filter: (i) => i.customId === 'ttt_accept' || i.customId === 'ttt_deny',
     });
 
@@ -158,14 +177,13 @@ module.exports = {
         return i.reply({ content: "This challenge isn't for you.", ephemeral: true });
       }
 
+      responded = true;
+      challengeCollector.stop('responded');
+
       if (i.customId === 'ttt_deny') {
         return i.update({
           content: null,
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0xe74c3c)
-              .setDescription(`❌ ${opponent} denied the challenge from ${challenger}.`),
-          ],
+          embeds: [deniedEmbed(opponent, challenger)],
           components: [],
         });
       }
@@ -234,15 +252,12 @@ module.exports = {
       });
     });
 
-    challengeCollector.on('end', async (collected) => {
-      if (collected.size === 0) {
+    challengeCollector.on('end', async (_collected, reason) => {
+      // Only true if 60s passed and neither Accept nor Deny was ever clicked.
+      if (!responded && reason === 'time') {
         await challengeMessage.edit({
           content: null,
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0x95a5a6)
-              .setDescription(`⏱️ ${opponent} didn't respond in time. Challenge expired.`),
-          ],
+          embeds: [expiredEmbed(opponent, challenger)],
           components: [],
         }).catch(() => {});
       }
