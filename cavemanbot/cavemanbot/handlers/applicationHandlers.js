@@ -22,33 +22,37 @@ const { isStaff } = require('../utils/permissions');
 const { noClaimRow } = require('../utils/ticketActions');
 
 async function handleApplicationSelect(interaction) {
+  // Defer immediately, before any async work (channel fetch, DM send) —
+  // interaction tokens expire after 3s, and those calls can easily take
+  // longer than that, which was causing "Unknown interaction" (10062)
+  // errors on the reply below. Every branch now uses editReply instead
+  // of reply, since the interaction is already deferred.
+  await interaction.deferReply({ ephemeral: true });
+
   const value = interaction.values[0];
   const appConfig = applicationQuestions[value];
   if (!appConfig) {
-    return interaction.reply({ content: 'Unknown application type.', ephemeral: true });
+    return interaction.editReply({ content: 'Unknown application type.' });
   }
 
   const existing = ticketStore.findOpenByUser(interaction.user.id, value);
   if (existing) {
-    return interaction.reply({
+    return interaction.editReply({
       content: 'You already have an open application of this type — check your DMs with the bot to continue it.',
-      ephemeral: true,
     });
   }
 
   const appCfg = config.applicationCategories[value] || {};
   if (!appCfg.reviewChannelId) {
-    return interaction.reply({
+    return interaction.editReply({
       content: "This application type isn't fully set up yet (no review channel configured) — ask an admin to check config.js.",
-      ephemeral: true,
     });
   }
 
   const reviewChannel = await interaction.client.channels.fetch(appCfg.reviewChannelId).catch(() => null);
   if (!reviewChannel) {
-    return interaction.reply({
+    return interaction.editReply({
       content: "The review channel for this application type couldn't be found — ask an admin to check config.js.",
-      ephemeral: true,
     });
   }
 
@@ -64,13 +68,12 @@ async function handleApplicationSelect(interaction) {
     dmChannel = await interaction.user.createDM();
     await dmChannel.send({ embeds: [introEmbed] });
   } catch (err) {
-    return interaction.reply({
+    return interaction.editReply({
       content: "I couldn't DM you to start the application — please enable direct messages from server members in your Privacy Settings and try again.",
-      ephemeral: true,
     });
   }
 
-  await interaction.reply({ content: "Check your DMs — I've started your application there!", ephemeral: true });
+  await interaction.editReply({ content: "Check your DMs — I've started your application there!" });
 
   const appId = crypto.randomUUID();
   ticketStore.add(appId, {
