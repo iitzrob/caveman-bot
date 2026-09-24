@@ -12,6 +12,13 @@ const WIN_LINES = [
   [0, 4, 8], [2, 4, 6],           // diagonals
 ];
 
+const COOLDOWN_MS = 10 * 1000;
+const CHALLENGE_TIMEOUT_MS = 60 * 1000;
+const GAME_TIMEOUT_MS = 5 * 60 * 1000;
+
+// challenger id -> timestamp they can next use the command
+const cooldowns = new Map();
+
 function checkResult(board) {
   for (const [a, b, c] of WIN_LINES) {
     if (board[a] && board[a] === board[b] && board[a] === board[c]) {
@@ -22,7 +29,16 @@ function checkResult(board) {
   return null;
 }
 
-function buildBoard(board, locked) {
+function renderBoardText(board) {
+  const symbol = (v) => (v === 'X' ? '❌' : v === 'O' ? '⭕' : '⬜');
+  let out = '';
+  for (let r = 0; r < 3; r++) {
+    out += board.slice(r * 3, r * 3 + 3).map(symbol).join(' ') + '\n';
+  }
+  return out;
+}
+
+function buildBoardButtons(board, locked) {
   const rows = [];
   for (let r = 0; r < 3; r++) {
     const row = new ActionRowBuilder();
@@ -32,7 +48,7 @@ function buildBoard(board, locked) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`ttt_${i}`)
-          .setLabel(val || '\u200b') // zero-width space keeps empty cells same size
+          .setLabel(val === 'X' ? '❌' : val === 'O' ? '⭕' : '\u200b')
           .setStyle(
             val === 'X' ? ButtonStyle.Danger
               : val === 'O' ? ButtonStyle.Primary
@@ -46,23 +62,41 @@ function buildBoard(board, locked) {
   return rows;
 }
 
-function buildEmbed({ playerX, playerO, turn, board, result }) {
+function buildChallengeEmbed(challenger, opponent) {
+  return new EmbedBuilder()
+    .setColor(0xf1c40f)
+    .setAuthor({ name: challenger.username, iconURL: challenger.displayAvatarURL() })
+    .setTitle('⚔️ Tic Tac Toe Duel')
+    .setDescription(
+      `${opponent}, **${challenger}** has challenged you to a game of Tic Tac Toe!\n\nDo you accept?`
+    )
+    .setFooter({ text: 'This challenge expires in 60 seconds' })
+    .setTimestamp();
+}
+
+function buildGameEmbed({ playerX, playerO, turn, board, result }) {
   const embed = new EmbedBuilder()
     .setTitle('🎮 Tic Tac Toe')
+    .setDescription(`\`\`\`\n${renderBoardText(board)}\`\`\``)
     .addFields(
-      { name: '❌ X', value: `${playerX}`, inline: true },
-      { name: 'VS', value: '\u200b', inline: true },
-      { name: '⭕ O', value: `${playerO}`, inline: true },
-    );
+      { name: '❌ Player X', value: `${playerX}`, inline: true },
+      { name: '⭕ Player O', value: `${playerO}`, inline: true },
+    )
+    .setTimestamp();
 
   if (result === 'draw') {
-    embed.setColor(0x95a5a6).setDescription("**It's a draw!** 🤝");
+    embed.setColor(0x95a5a6)
+      .setFooter({ text: "It's a draw! 🤝" });
   } else if (result === 'X' || result === 'O') {
     const winner = result === 'X' ? playerX : playerO;
-    embed.setColor(0x2ecc71).setDescription(`**${winner} wins!** 🎉`);
+    embed.setColor(0x2ecc71)
+      .setAuthor({ name: `${winner.username} wins! 🏆`, iconURL: winner.displayAvatarURL() })
+      .setFooter({ text: 'GG! Use /tictactoe to play again' });
   } else {
     const current = turn === 'X' ? playerX : playerO;
-    embed.setColor(0x5865f2).setDescription(`It's ${current}'s turn — playing **${turn}**`);
+    embed.setColor(turn === 'X' ? 0xe74c3c : 0x3498db)
+      .setAuthor({ name: `${current.username}'s turn`, iconURL: current.displayAvatarURL() })
+      .setFooter({ text: `Playing as ${turn}` });
   }
 
   return embed;
@@ -84,72 +118,132 @@ module.exports = {
     const opponent = interaction.options.getUser('user');
 
     if (opponent.bot) {
-      return interaction.reply({ content: "You can't play against a bot.", ephemeral: true });
+      return interaction.reply({ content: "You can't challenge a bot.", ephemeral: true });
     }
     if (opponent.id === challenger.id) {
-      return interaction.reply({ content: "You can't play against yourself.", ephemeral: true });
+      return interaction.reply({ content: "You can't challenge yourself.", ephemeral: true });
     }
 
-    const board = Array(9).fill(null);
+    const now = Date.now();
+    const readyAt = cooldowns.get(challenger.id) || 0;
+    if (now < readyAt) {
+      const secondsLeft = Math.ceil((readyAt - now) / 1000);
+      return interaction.reply({
+        content: `Slow down — you can send another challenge in ${secondsLeft}s.`,
+        ephemeral: true,
+      });
+    }
+    cooldowns.set(challenger.id, now + COOLDOWN_MS);
 
-    // Coin flip for who plays X (goes first)
-    const startsFirst = Math.random() < 0.5 ? challenger : opponent;
-    const playerX = startsFirst;
-    const playerO = startsFirst.id === challenger.id ? opponent : challenger;
+    const acceptRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ttt_accept').setLabel('Accept').setStyle(ButtonStyle.Success).setEmoji('✅'),
+      new ButtonBuilder().setCustomId('ttt_deny').setLabel('Deny').setStyle(ButtonStyle.Danger).setEmoji('❌'),
+    );
 
-    let turn = 'X';
-    let result = null;
-
-    const message = await interaction.reply({
-      embeds: [buildEmbed({ playerX, playerO, turn, board, result })],
-      components: buildBoard(board, false),
+    const challengeMessage = await interaction.reply({
+      content: `${opponent}`,
+      embeds: [buildChallengeEmbed(challenger, opponent)],
+      components: [acceptRow],
       fetchReply: true,
     });
 
-    const collector = message.createMessageComponentCollector({
-      time: 5 * 60 * 1000, // 5 minute inactivity timeout
+    const challengeCollector = challengeMessage.createMessageComponentCollector({
+      time: CHALLENGE_TIMEOUT_MS,
+      max: 1,
+      filter: (i) => i.customId === 'ttt_accept' || i.customId === 'ttt_deny',
     });
 
-    collector.on('collect', async (i) => {
-      const expectedPlayer = turn === 'X' ? playerX : playerO;
+    challengeCollector.on('collect', async (i) => {
+      if (i.user.id !== opponent.id) {
+        return i.reply({ content: "This challenge isn't for you.", ephemeral: true });
+      }
 
-      // Wrong turn, or someone who isn't in this game at all
-      if (i.user.id !== expectedPlayer.id) {
-        const inGame = i.user.id === challenger.id || i.user.id === opponent.id;
-        return i.reply({
-          content: inGame ? "It's not your turn." : "This isn't your game.",
-          ephemeral: true,
+      if (i.customId === 'ttt_deny') {
+        return i.update({
+          content: null,
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0xe74c3c)
+              .setDescription(`❌ ${opponent} denied the challenge from ${challenger}.`),
+          ],
+          components: [],
         });
       }
 
-      const index = parseInt(i.customId.split('_')[1], 10);
-      if (board[index]) {
-        return i.deferUpdate(); // cell already taken, ignore silently
-      }
+      // Accepted — start the game
+      const board = Array(9).fill(null);
+      const startsFirst = Math.random() < 0.5 ? challenger : opponent;
+      const playerX = startsFirst;
+      const playerO = startsFirst.id === challenger.id ? opponent : challenger;
 
-      board[index] = turn;
-      result = checkResult(board);
-
-      if (!result) {
-        turn = turn === 'X' ? 'O' : 'X';
-      } else {
-        collector.stop('finished');
-      }
+      let turn = 'X';
+      let result = null;
 
       await i.update({
-        embeds: [buildEmbed({ playerX, playerO, turn, board, result })],
-        components: buildBoard(board, !!result),
+        content: `${playerX} ⚔️ ${playerO}`,
+        embeds: [buildGameEmbed({ playerX, playerO, turn, board, result })],
+        components: buildBoardButtons(board, false),
+      });
+
+      const gameCollector = challengeMessage.createMessageComponentCollector({
+        time: GAME_TIMEOUT_MS,
+        filter: (btn) => btn.customId.startsWith('ttt_') && btn.customId !== 'ttt_accept' && btn.customId !== 'ttt_deny',
+      });
+
+      gameCollector.on('collect', async (btn) => {
+        const expectedPlayer = turn === 'X' ? playerX : playerO;
+
+        if (btn.user.id !== expectedPlayer.id) {
+          const inGame = btn.user.id === challenger.id || btn.user.id === opponent.id;
+          return btn.reply({
+            content: inGame ? "It's not your turn." : "This isn't your game.",
+            ephemeral: true,
+          });
+        }
+
+        const index = parseInt(btn.customId.split('_')[1], 10);
+        if (board[index]) {
+          return btn.deferUpdate();
+        }
+
+        board[index] = turn;
+        result = checkResult(board);
+
+        if (!result) {
+          turn = turn === 'X' ? 'O' : 'X';
+        } else {
+          gameCollector.stop('finished');
+        }
+
+        await btn.update({
+          embeds: [buildGameEmbed({ playerX, playerO, turn, board, result })],
+          components: buildBoardButtons(board, !!result),
+        });
+      });
+
+      gameCollector.on('end', async (_collected, reason) => {
+        if (reason === 'time') {
+          const timedOutEmbed = buildGameEmbed({ playerX, playerO, turn, board, result })
+            .setColor(0x95a5a6)
+            .setFooter({ text: '⏱️ Game timed out from inactivity' });
+          await challengeMessage.edit({
+            embeds: [timedOutEmbed],
+            components: buildBoardButtons(board, true),
+          }).catch(() => {});
+        }
       });
     });
 
-    collector.on('end', async (_collected, reason) => {
-      if (reason === 'time') {
-        const timedOutEmbed = buildEmbed({ playerX, playerO, turn, board, result })
-          .setColor(0x95a5a6)
-          .setDescription('⏱️ Game timed out from inactivity.');
-        await message.edit({
-          embeds: [timedOutEmbed],
-          components: buildBoard(board, true),
+    challengeCollector.on('end', async (collected) => {
+      if (collected.size === 0) {
+        await challengeMessage.edit({
+          content: null,
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x95a5a6)
+              .setDescription(`⏱️ ${opponent} didn't respond in time. Challenge expired.`),
+          ],
+          components: [],
         }).catch(() => {});
       }
     });
