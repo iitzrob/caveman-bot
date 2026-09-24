@@ -224,15 +224,10 @@ module.exports = {
       acceptedRoleId: '1534499230406938684',
       ticketCategoryId: '1551789632956665957',
     },
-    // Sends to the requested review channel; reuses the same ping role as
-    // every other application type. No acceptedRoleId/ticketCategoryId were
-    // given — accept won't auto-assign a role and "Open a Ticket" will just
-    // create the channel with no parent category. Fill both in whenever you
-    // have real IDs for them.
     media_manager: {
       reviewChannelId: '1552639019232395344',
       pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1534029586231332986',
+      acceptedRoleId: '1550876060780859542',
       ticketCategoryId: '1552665115206352966',
     },
   },
