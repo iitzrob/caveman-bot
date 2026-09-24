@@ -16,6 +16,9 @@ const COOLDOWN_MS = 10 * 1000;
 const CHALLENGE_TIMEOUT_MS = 60 * 1000;
 const GAME_TIMEOUT_MS = 5 * 60 * 1000;
 
+const ACCEPT_EMOJI = { id: '1533798048856281168', name: 'Tick234234' };
+const DENY_EMOJI = { id: '1533798047618695308', name: 'Cross' };
+
 // challenger id -> timestamp they can next use the command
 const cooldowns = new Map();
 
@@ -29,18 +32,9 @@ function checkResult(board) {
   return null;
 }
 
-function renderBoardText(board) {
-  const symbol = (v) => (v === 'X' ? '❌' : v === 'O' ? '⭕' : '⬜');
-  let out = '';
-  for (let r = 0; r < 3; r++) {
-    out += board.slice(r * 3, r * 3 + 3).map(symbol).join(' ') + '\n';
-  }
-  return out;
-}
-
-// Every cell label is an emoji (❌ / ⭕ / ⬜) so every button renders the
-// same width — mixing an emoji with a blank/zero-width label is what made
-// buttons change size between empty and filled cells.
+// Every cell uses a visible single-character label (X, O, or a placeholder
+// dot) so all 9 buttons stay the same size — a blank/invisible label on
+// empty cells is what made buttons resize as the board filled in.
 function buildBoardButtons(board, locked) {
   const rows = [];
   for (let r = 0; r < 3; r++) {
@@ -51,7 +45,7 @@ function buildBoardButtons(board, locked) {
       row.addComponents(
         new ButtonBuilder()
           .setCustomId(`ttt_${i}`)
-          .setLabel(val === 'X' ? '❌' : val === 'O' ? '⭕' : '⬜')
+          .setLabel(val || '·')
           .setStyle(
             val === 'X' ? ButtonStyle.Danger
               : val === 'O' ? ButtonStyle.Primary
@@ -67,38 +61,29 @@ function buildBoardButtons(board, locked) {
 
 function buildChallengeEmbed(challenger, opponent) {
   return new EmbedBuilder()
-    .setColor(0xf1c40f)
-    .setAuthor({ name: challenger.username, iconURL: challenger.displayAvatarURL() })
-    .setTitle('⚔️ Tic Tac Toe Duel')
-    .setDescription(
-      `${opponent}, **${challenger}** has challenged you to a game of Tic Tac Toe!\n\nDo you accept?`
-    )
-    .setFooter({ text: 'This challenge expires in 60 seconds' })
-    .setTimestamp();
+    .setColor(0x5865f2)
+    .setTitle('Tic Tac Toe')
+    .setDescription(`${opponent}, ${challenger} wants to play. Do you accept?`)
+    .setFooter({ text: 'Expires in 60s' });
 }
 
-function buildGameEmbed({ playerX, playerO, turn, board, result }) {
+function buildGameEmbed({ playerX, playerO, turn, result }) {
   const embed = new EmbedBuilder()
-    .setTitle('🎮 Tic Tac Toe')
-    .setDescription(`\`\`\`\n${renderBoardText(board)}\`\`\``)
+    .setTitle('Tic Tac Toe')
     .addFields(
-      { name: '❌ Player X', value: `${playerX}`, inline: true },
-      { name: '⭕ Player O', value: `${playerO}`, inline: true },
-    )
-    .setTimestamp();
+      { name: 'X', value: `${playerX}`, inline: true },
+      { name: 'O', value: `${playerO}`, inline: true },
+    );
 
   if (result === 'draw') {
-    embed.setColor(0x95a5a6).setFooter({ text: "It's a draw! 🤝" });
+    embed.setColor(0x95a5a6).setFooter({ text: "It's a draw" });
   } else if (result === 'X' || result === 'O') {
     const winner = result === 'X' ? playerX : playerO;
-    embed.setColor(0x2ecc71)
-      .setAuthor({ name: `${winner.username} wins! 🏆`, iconURL: winner.displayAvatarURL() })
-      .setFooter({ text: 'GG! Use /tictactoe to play again' });
+    embed.setColor(0x2ecc71).setFooter({ text: `${winner.username} wins` });
   } else {
     const current = turn === 'X' ? playerX : playerO;
     embed.setColor(turn === 'X' ? 0xe74c3c : 0x3498db)
-      .setAuthor({ name: `${current.username}'s turn`, iconURL: current.displayAvatarURL() })
-      .setFooter({ text: `Playing as ${turn}` });
+      .setFooter({ text: `${current.username}'s turn (${turn})` });
   }
 
   return embed;
@@ -107,14 +92,14 @@ function buildGameEmbed({ playerX, playerO, turn, board, result }) {
 function expiredEmbed(opponent, challenger) {
   return new EmbedBuilder()
     .setColor(0x95a5a6)
-    .setTitle('⏱️ Duel Expired')
-    .setDescription(`${opponent} didn't respond in time. The duel from ${challenger} has expired.`);
+    .setTitle('Tic Tac Toe')
+    .setDescription(`${opponent} didn't respond in time. Challenge from ${challenger} has expired.`);
 }
 
 function deniedEmbed(opponent, challenger) {
   return new EmbedBuilder()
-    .setColor(0xe74c3c)
-    .setTitle('❌ Duel Denied')
+    .setColor(0x95a5a6)
+    .setTitle('Tic Tac Toe')
     .setDescription(`${opponent} denied the challenge from ${challenger}.`);
 }
 
@@ -152,8 +137,8 @@ module.exports = {
     cooldowns.set(challenger.id, now + COOLDOWN_MS);
 
     const acceptRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ttt_accept').setLabel('Accept').setStyle(ButtonStyle.Success).setEmoji('✅'),
-      new ButtonBuilder().setCustomId('ttt_deny').setLabel('Deny').setStyle(ButtonStyle.Danger).setEmoji('❌'),
+      new ButtonBuilder().setCustomId('ttt_accept').setLabel('Accept').setStyle(ButtonStyle.Success).setEmoji(ACCEPT_EMOJI),
+      new ButtonBuilder().setCustomId('ttt_deny').setLabel('Deny').setStyle(ButtonStyle.Danger).setEmoji(DENY_EMOJI),
     );
 
     const challengeMessage = await interaction.reply({
@@ -198,8 +183,8 @@ module.exports = {
       let result = null;
 
       await i.update({
-        content: `${playerX} ⚔️ ${playerO}`,
-        embeds: [buildGameEmbed({ playerX, playerO, turn, board, result })],
+        content: `${playerX} vs ${playerO}`,
+        embeds: [buildGameEmbed({ playerX, playerO, turn, result })],
         components: buildBoardButtons(board, false),
       });
 
@@ -234,16 +219,16 @@ module.exports = {
         }
 
         await btn.update({
-          embeds: [buildGameEmbed({ playerX, playerO, turn, board, result })],
+          embeds: [buildGameEmbed({ playerX, playerO, turn, result })],
           components: buildBoardButtons(board, !!result),
         });
       });
 
       gameCollector.on('end', async (_collected, reason) => {
         if (reason === 'time') {
-          const timedOutEmbed = buildGameEmbed({ playerX, playerO, turn, board, result })
+          const timedOutEmbed = buildGameEmbed({ playerX, playerO, turn, result })
             .setColor(0x95a5a6)
-            .setFooter({ text: '⏱️ Game timed out from inactivity' });
+            .setFooter({ text: 'Game timed out' });
           await challengeMessage.edit({
             embeds: [timedOutEmbed],
             components: buildBoardButtons(board, true),
@@ -252,9 +237,7 @@ module.exports = {
       });
     });
 
-    challengeCollector.on('end', async (_collected, reason) => {
-      // Only true if 60s passed and neither Accept nor Deny was ever clicked.
-      console.log(`[tictactoe] challenge collector ended — responded: ${responded}, reason: ${reason}`);
+    challengeCollector.on('end', async () => {
       if (!responded) {
         await challengeMessage.edit({
           content: null,
