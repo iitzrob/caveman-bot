@@ -247,19 +247,20 @@ module.exports = {
           await challengeMessage.edit({
             embeds: [timedOutEmbed],
             components: buildBoardButtons(board, true),
-          }).catch(() => {});
+          }).catch((err) => console.error('[tictactoe] game timeout edit failed:', err));
         }
       });
     });
 
     challengeCollector.on('end', async (_collected, reason) => {
       // Only true if 60s passed and neither Accept nor Deny was ever clicked.
-      if (!responded && reason === 'time') {
+      console.log(`[tictactoe] challenge collector ended — responded: ${responded}, reason: ${reason}`);
+      if (!responded) {
         await challengeMessage.edit({
           content: null,
           embeds: [expiredEmbed(opponent, challenger)],
           components: [],
-        }).catch(() => {});
+        }).catch((err) => console.error('[tictactoe] expired edit failed:', err));
       }
     });
   },
