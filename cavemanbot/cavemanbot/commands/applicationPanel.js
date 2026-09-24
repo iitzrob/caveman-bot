@@ -30,6 +30,10 @@ const APPLICATIONS_DESCRIPTION = `## Applications
 > Must have a balance of 250M+
 > Must have 25+ vouches or be trusted in some other way
 
+**Media Manager Requirements:**
+> Must have social acc's (Youtube, TikTok)
+> Must post vids or shorts at least 1-2 vids a week
+
 **Note:**
 > If you get denied, you can't apply again for 1 week
 > If you ask any staff about your application, we will instantly deny it
@@ -54,7 +58,8 @@ module.exports = {
         .addOptions(
           { label: 'Staff/Helper Applications', value: 'staff_helper' },
           { label: 'Builder Applications', value: 'builder' },
-          { label: 'Partner Manager Applications', value: 'partner_manager' }
+          { label: 'Partner Manager Applications', value: 'partner_manager' },
+          { label: 'Media Manager Applications', value: 'media_manager' }
         )
     );
 
