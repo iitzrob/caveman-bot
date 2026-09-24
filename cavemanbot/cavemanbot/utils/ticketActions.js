@@ -28,6 +28,50 @@ const RENAME_POINTS = 3;
 // change it.
 const ALWAYS_CAN_TYPE_ROLE_ID = config.alwaysCanTypeRoleId;
 
+function getTicketCategoryIds() {
+  return Object.values(config.ticketCategories || {})
+    .map((c) => c.categoryId)
+    .filter(Boolean);
+}
+
+function getApplicationCategoryIds() {
+  return Object.values(config.applicationCategories || {})
+    .map((c) => c.ticketCategoryId)
+    .filter(Boolean);
+}
+
+// Central lookup used by every ticket action. Tries, in order:
+// 1) the saved record in data/tickets.json (ticketStore) — the normal case
+// 2) an opener id embedded in the channel topic — the old fallback
+// 3) simply being a channel that lives under one of the configured
+//    ticket/application categories. If the bot created it there, it's a
+//    real ticket even if its ticketStore entry or topic got lost somehow
+//    (bot restart mid-open, topic edited/cleared, etc.) — being in the
+//    right category is enough on its own.
+// Returns null only if none of the three match at all.
+function getTicketMeta(channel) {
+  const stored = ticketStore.get(channel.id);
+  if (stored) return stored;
+
+  const topicOpenerId = (channel.topic || '').match(/\d{17,20}/)?.[0];
+  if (topicOpenerId) return { type: 'ticket', openerId: topicOpenerId };
+
+  if (getTicketCategoryIds().includes(channel.parentId)) {
+    return { type: 'ticket', openerId: null };
+  }
+  if (getApplicationCategoryIds().includes(channel.parentId)) {
+    return { type: 'application', openerId: null };
+  }
+
+  return null;
+}
+
+// Used when building log/close text — avoids printing "<@null>" when a
+// ticket was recognized purely by category and has no known opener.
+function openerMentionClause(meta) {
+  return meta.openerId ? ` (opened by <@${meta.openerId}>)` : '';
+}
+
 // Simple one-line system-notice embed used for claim/unclaim/close/rename
 // notifications, so they look consistent instead of plain text.
 function systemEmbed(description) {
@@ -52,7 +96,7 @@ async function closeChannel(interaction) {
     return interaction.reply({ content: 'Only staff can close this.', ephemeral: true });
   }
 
-  const meta = ticketStore.get(interaction.channel.id);
+  const meta = getTicketMeta(interaction.channel);
   if (!meta) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
@@ -64,7 +108,7 @@ async function closeChannel(interaction) {
   await finishClose(
     interaction,
     meta,
-    `Ticket **#${interaction.channel.name}** closed by ${interaction.user} (opened by <@${meta.openerId}>).`
+    `Ticket **#${interaction.channel.name}** closed by ${interaction.user}${openerMentionClause(meta)}.`
   );
 }
 
@@ -120,6 +164,11 @@ async function finishClose(interaction, meta, logText) {
 // Close Ticket does; Disagree just dismisses the request. The requester's id
 // is stored in the button ids (ticket_close_agree:<id>), so this survives bot
 // restarts and nothing extra has to be saved.
+//
+// This flow specifically needs a known opener id (there has to be someone to
+// ping and to authorize), so unlike the other actions it does not fall back
+// to "any channel in a ticket category" — if that's all we have, staff
+// should use Close Ticket directly instead.
 
 // Channels whose close is already in progress from an Agree click, so a
 // double-click can't start two closes.
@@ -130,9 +179,14 @@ async function requestClose(interaction) {
     return interaction.reply({ content: 'Only staff can request to close this.', ephemeral: true });
   }
 
-  const meta = ticketStore.get(interaction.channel.id);
+  const meta = getTicketMeta(interaction.channel);
   if (!meta || !meta.openerId) {
-    return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
+    return interaction.reply({
+      content: meta
+        ? "Can't tell who opened this ticket, so there's no one to ask — use Close Ticket instead."
+        : 'This is not a ticket or application channel.',
+      ephemeral: true,
+    });
   }
 
   points.addPoints(interaction.user.id, REQUEST_CLOSE_POINTS);
@@ -162,8 +216,8 @@ async function requestClose(interaction) {
 }
 
 async function handleCloseAgree(interaction) {
-  const meta = ticketStore.get(interaction.channel.id);
-  if (!meta) {
+  const meta = getTicketMeta(interaction.channel);
+  if (!meta || !meta.openerId) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
   if (interaction.user.id !== meta.openerId) {
@@ -190,8 +244,8 @@ async function handleCloseAgree(interaction) {
 }
 
 async function handleCloseDisagree(interaction) {
-  const meta = ticketStore.get(interaction.channel.id);
-  if (!meta) {
+  const meta = getTicketMeta(interaction.channel);
+  if (!meta || !meta.openerId) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
   if (interaction.user.id !== meta.openerId) {
@@ -211,7 +265,7 @@ async function renameChannel(interaction, newName) {
     return interaction.reply({ content: 'Only staff can rename this.', ephemeral: true });
   }
 
-  const meta = ticketStore.get(interaction.channel.id);
+  const meta = getTicketMeta(interaction.channel);
   if (!meta) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
@@ -317,7 +371,7 @@ async function claimTicket(interaction) {
     return interaction.reply({ content: 'Only staff can claim tickets.', ephemeral: true });
   }
 
-  const meta = ticketStore.get(interaction.channel.id);
+  const meta = getTicketMeta(interaction.channel);
   if (!meta || meta.type !== 'ticket') {
     return interaction.reply({ content: 'This channel cannot be claimed.', ephemeral: true });
   }
@@ -368,7 +422,7 @@ async function unclaimTicket(interaction) {
     return interaction.reply({ content: 'Only staff can unclaim tickets.', ephemeral: true });
   }
 
-  const meta = ticketStore.get(interaction.channel.id);
+  const meta = getTicketMeta(interaction.channel);
   if (!meta || meta.type !== 'ticket' || !meta.claimedBy) {
     return interaction.reply({ content: 'This ticket is not currently claimed.', ephemeral: true });
   }
@@ -427,7 +481,7 @@ async function handleRenameButton(interaction) {
     return interaction.reply({ content: 'Only staff can rename this.', ephemeral: true });
   }
 
-  const meta = ticketStore.get(interaction.channel.id);
+  const meta = getTicketMeta(interaction.channel);
   if (!meta) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
@@ -447,7 +501,7 @@ async function addUserToTicket(interaction, user) {
     return interaction.reply({ content: 'Only staff can add someone to a ticket.', ephemeral: true });
   }
 
-  const meta = ticketStore.get(interaction.channel.id);
+  const meta = getTicketMeta(interaction.channel);
   if (!meta) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
