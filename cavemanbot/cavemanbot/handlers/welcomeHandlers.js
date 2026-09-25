@@ -1,4 +1,5 @@
 const config = require('../config');
+const { EmbedBuilder } = require('discord.js');
 
 // Turns 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th", 11 -> "11th", etc.
 function ordinal(n) {
@@ -37,4 +38,24 @@ async function handleWelcome(member) {
   );
 }
 
-module.exports = { handleWelcome };
+// Sends the welcomeDM.message from config.js straight to the new member's
+// DMs, as an embed (so headers/bold/links render). Failing to DM someone
+// (DMs closed, blocked bot, etc.) is expected and just logged — it never
+// throws or blocks anything else in the join flow.
+async function handleWelcomeDM(member) {
+  const cfg = config.welcomeDM || {};
+  if (!cfg.enabled) return;
+  if (member.guild.id !== config.guildId) return;
+  if (member.user.bot) return;
+  if (!cfg.message) return;
+
+  const embed = new EmbedBuilder()
+    .setDescription(cfg.message)
+    .setColor(0x2b2d31);
+
+  await member.send({ embeds: [embed] }).catch((err) =>
+    console.warn(`[welcome] Couldn't DM welcome message to ${member.id}: ${err.message}`)
+  );
+}
+
+module.exports = { handleWelcome, handleWelcomeDM };
