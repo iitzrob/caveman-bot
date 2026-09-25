@@ -587,7 +587,7 @@ async function paymentTicket(interaction) {
   }
 
   await interaction.reply({
-    embeds: [systemEmbed(`💳 ${interaction.user} moved this ticket to the payment category. Staff still have access.`)],
+    embeds: [systemEmbed(`💳 ${interaction.user} moved this ticket to the payment ticket's category.`)],
   });
 
   await logToChannel(
