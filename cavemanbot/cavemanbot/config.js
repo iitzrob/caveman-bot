@@ -71,6 +71,16 @@ module.exports = {
 
   staffRoleId: '1534029589569998888',
 
+  // Role that's exempt from the one-rename-per-ticket limit below — can
+  // rename the same ticket as many times as needed. Everyone else with
+  // staff can only rename a given ticket once.
+  renameExemptRoleId: '1534029586231332986',
+
+  // Category a service ticket (build/dig/mapart/regears) gets moved to
+  // when staff run /payment-ticket in it. Staff keep access — the move
+  // doesn't touch the channel's existing permission overwrites.
+  paymentTicketCategoryId: '1552992052810096680',
+
   // ---- Vouches ----
   // - channelId: channel where people type "vouch @user" / "scam vouch @user".
   // - scammerRoleId: role given out by /scam-vouch add.
