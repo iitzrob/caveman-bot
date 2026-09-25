@@ -23,7 +23,7 @@ const { handleVouchMessage, handleScamVouchButton } = require('./handlers/vouchM
 const { handleVouchSendButton } = require('./handlers/vouchSendHandlers');
 const levels = require('./utils/levels');
 const { handleMemberAdd, handleMemberRemove, cacheAllMembers } = require('./handlers/stickyRoles');
-const { handleWelcome } = require('./handlers/welcomeHandlers');
+const { handleWelcome, handleWelcomeDM } = require('./handlers/welcomeHandlers');
 const {
   handleApplicationSelect,
   handleApplicationAccept,
@@ -147,6 +147,9 @@ client.on(Events.GuildMemberAdd, (member) => {
   );
   handleWelcome(member).catch((err) =>
     console.error(`[welcome] Couldn't send welcome message for ${member.user.tag}:`, err.message)
+  );
+  handleWelcomeDM(member).catch((err) =>
+    console.error(`[welcome] Couldn't send welcome DM for ${member.user.tag}:`, err.message)
   );
 });
 
