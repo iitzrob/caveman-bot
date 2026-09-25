@@ -13,6 +13,14 @@ const ticketStore = require('./ticketStore');
 const { isStaff } = require('./permissions');
 const { buildTranscript } = require('./transcript');
 const points = require('./points');
+const serviceCategories = require('../data/serviceCategories');
+
+// Service ticket type ids (build/dig/mapart/regears) — the only kind of
+// ticket /payment-ticket is allowed to run in.
+const SERVICE_TICKET_IDS = new Set(serviceCategories.map((c) => c.id));
+
+// Role exempt from the one-rename-per-ticket limit (see renameChannel below).
+const RENAME_EXEMPT_ROLE_ID = config.renameExemptRoleId;
 
 // Points awarded to staff for each ticket action, added to the weekly
 // leaderboard (utils/points.js). Rename Ticket is worth more since it takes
@@ -189,7 +197,18 @@ async function requestClose(interaction) {
     });
   }
 
+  // Only one close request can be pending at a time — staff have to wait
+  // for the opener to Agree/Disagree before asking again. Disagree clears
+  // this; Agree closes the ticket (which removes its store entry anyway).
+  if (meta.closeRequestPending) {
+    return interaction.reply({
+      content: 'A close request is already pending on this ticket — wait for a response before requesting again.',
+      ephemeral: true,
+    });
+  }
+
   points.addPoints(interaction.user.id, REQUEST_CLOSE_POINTS);
+  ticketStore.update(interaction.channel.id, { closeRequestPending: true });
 
   const embed = new EmbedBuilder()
     .setDescription(`<@${meta.openerId}>, ${interaction.user} requested to close this ticket. Do you agree?`)
@@ -254,6 +273,8 @@ async function handleCloseDisagree(interaction) {
 
   const requesterId = interaction.customId.split(':')[1];
 
+  ticketStore.update(interaction.channel.id, { closeRequestPending: false });
+
   await interaction.update({
     embeds: [systemEmbed(`${interaction.user} declined the request from <@${requesterId}> to close this ticket.`)],
     components: [],
@@ -270,6 +291,16 @@ async function renameChannel(interaction, newName) {
     return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
   }
 
+  // Everyone can rename a given ticket once; RENAME_EXEMPT_ROLE_ID can do it
+  // as many times as needed regardless of that limit.
+  const isExempt = RENAME_EXEMPT_ROLE_ID && interaction.member.roles.cache.has(RENAME_EXEMPT_ROLE_ID);
+  if (!isExempt && meta.renamed) {
+    return interaction.reply({
+      content: `This ticket has already been renamed once — only <@&${RENAME_EXEMPT_ROLE_ID}> can rename it again.`,
+      ephemeral: true,
+    });
+  }
+
   const sanitized = newName
     .trim()
     .replace(/\s+/g, '-')
@@ -278,6 +309,7 @@ async function renameChannel(interaction, newName) {
     .slice(0, 90) || 'ticket';
 
   points.addPoints(interaction.user.id, RENAME_POINTS);
+  ticketStore.update(interaction.channel.id, { renamed: true });
 
   const oldName = interaction.channel.name;
   await interaction.channel.setName(sanitized);
@@ -515,6 +547,55 @@ async function addUserToTicket(interaction, user) {
   await interaction.reply(`${user} has been added to this ticket by ${interaction.user}.`);
 }
 
+// /payment-ticket — staff only, only inside a service ticket (build, dig,
+// mapart, regears). Moves the channel to config.paymentTicketCategoryId.
+// Doesn't touch permission overwrites (lockPermissions: false), so staff
+// and the opener keep exactly the access they already had — only the
+// channel's category/position changes.
+async function paymentTicket(interaction) {
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: 'Only staff can use this.', ephemeral: true });
+  }
+
+  const meta = getTicketMeta(interaction.channel);
+  if (!meta || meta.type !== 'ticket' || !SERVICE_TICKET_IDS.has(meta.category)) {
+    return interaction.reply({
+      content: 'This can only be used inside a service ticket (Build, Dig, Mapart or Regears).',
+      ephemeral: true,
+    });
+  }
+
+  if (!config.paymentTicketCategoryId) {
+    return interaction.reply({
+      content: 'paymentTicketCategoryId is not set in config.js.',
+      ephemeral: true,
+    });
+  }
+
+  if (interaction.channel.parentId === config.paymentTicketCategoryId) {
+    return interaction.reply({ content: 'This ticket is already in the payment category.', ephemeral: true });
+  }
+
+  try {
+    await interaction.channel.setParent(config.paymentTicketCategoryId, { lockPermissions: false });
+  } catch (err) {
+    console.error('Failed to move ticket to payment category:', err);
+    return interaction.reply({
+      content: "Couldn't move this ticket — check the bot has Manage Channels access to the payment category.",
+      ephemeral: true,
+    });
+  }
+
+  await interaction.reply({
+    embeds: [systemEmbed(`💳 ${interaction.user} moved this ticket to the payment category. Staff still have access.`)],
+  });
+
+  await logToChannel(
+    interaction,
+    `💳 ${interaction.user} moved ticket **#${interaction.channel.name}** to the payment category.`
+  );
+}
+
 module.exports = {
   closeChannel,
   requestClose,
@@ -526,6 +607,7 @@ module.exports = {
   handleRenameButton,
   handleRenameModalSubmit,
   addUserToTicket,
+  paymentTicket,
   claimedRow,
   unclaimedRow,
   noClaimRow,
