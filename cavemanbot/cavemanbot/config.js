@@ -26,6 +26,24 @@ module.exports = {
     message: 'Welcome {user} to {guild}. You are the {ordinal} member. We hope you have a great time!',
   },
 
+  // ---- Welcome DM ----
+  // Sent directly to a member's DMs when they join (separate from the
+  // channel message above). Sent as an embed description, so Discord
+  // markdown (headers, bold, links) renders. Set enabled to false to
+  // turn this off. If the member has DMs closed, this silently fails
+  // and is logged — it never blocks the channel welcome message.
+  welcomeDM: {
+    enabled: true,
+    message:
+`# [10B QUICKDROP RN! ](https://discord.gg/W7PGEZ9bjU)
+# Why join us?
+**- New and Active Server 💎 
+- Kind and Trusted Staff ♾️ 
+- Best builders and spawner prices 🦴 
+- New and small server so easy to win gws** 💸 
+***Join us Now!***`,
+  },
+
   // The text shown in the embed when /ticket-panel is run. Edit this
   // directly to change the wording — it's sent exactly as written below.
   // The buttons themselves (labels + emoji) still come from
@@ -124,7 +142,7 @@ module.exports = {
     },
     buy_sell_spawner: {
       categoryId: '1534029675804889108',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
+      pingRoleIds: ['1534029586231332986', '1538867174427332688'],
     },
     giveaway_claim: {
       categoryId: '1534029669140271275',
