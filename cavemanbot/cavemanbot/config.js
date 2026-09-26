@@ -369,4 +369,18 @@ module.exports = {
 
   // Timezone for the weekly points reset (Monday 1:00 AM).
   timezone: 'Europe/Berlin',
+
+  // ---- Reaction roles panel (/reaction-roles-panel) ----
+  // Each entry is one line on the panel: react with `emoji` to get
+  // `roleId`, react again to remove it. The bot recognizes a panel message
+  // purely by its embed title ("Reaction roles") — nothing about it is
+  // saved to disk, so there's no extra file and nothing gets reset by a
+  // redeploy/restart.
+  reactionRoles: [
+    { emoji: '<:Volume234234234:1533798058834264085>', label: 'Announcement Pings', roleId: '1534029609698463826' },
+    { emoji: '<:Spawner2342342:1533798050164637837>', label: 'Spawner Pings', roleId: '1534029606405935365' },
+    { emoji: '<:Trade2342342:1533798065084043276>', label: 'Gamble Pings', roleId: '1534029612898713791' },
+    { emoji: '<:140206catgoodjob:1537020605092859924>', label: 'Poll Pings', roleId: '1534029616149434628' },
+    { emoji: '<a:3899gift:1537021187450871859>', label: 'Giveaway Pings', roleId: '1534029602823995424' },
+  ],
 };
