@@ -1,366 +1,116 @@
-// Only the token / client id / guild id come from Railway (Variables tab).
-// Everything else is set directly below — edit the values in this file.
-try {
-  require('dotenv').config();
-} catch {
-  // dotenv not installed - fine on Railway, where variables are injected directly.
-}
-
 module.exports = {
-  // ---- These three come from Railway's Variables tab ----
+  // ==== From Railway variables ====
   token: process.env.BOT_TOKEN,
-  clientId: process.env.CLIENT_ID,
+  clientId: process.env.CLIENT_ID, // used by deploy-commands.js to register slash commands
   guildId: process.env.GUILD_ID,
 
-  // ---- Everything below: edit these values directly ----
+  // ==== Everything else — just paste your real IDs here ====
+  panelChannel: "PANEL_CHANNEL_ID",
+  bypassRole: "1546728771208482876", // can always type in a ticket even after it's been claimed by someone else (bypasses the claim lock)
+  staffRole: "1482008632747884736", // gets pinged + can see every new ticket as soon as it's created
+  // The server owner always has full access everywhere in the bot, no
+  // matter what. Anyone with this role gets that exact same full access —
+  // every command, every ticket action (claim/close/rename/add/etc.),
+  // bypassing claim locks, ,lock/,unlock, ,purge — identical to the owner.
+  // See utils.js (isStaff/isBuildStaff/isAdmin) for where this is checked.
+  fullAccessRole: "1455703614432481485",
+  ticketLogChannel: "1477059741657206934", // where ticket opened/claimed/closed events get logged. Leave as-is (or "") to disable logging.
+  ignLogChannel: "1480429965873778738", // where IGN link/update/remove events get logged.
 
-  // ---- Welcome message ----
-  // Sent as a plain text message (NOT an embed) whenever someone joins.
-  // - enabled: set to false to turn this off entirely.
-  // - channelId: paste the channel to post welcome messages in.
-  // - message: {user} mentions the new member, {guild} is the server name,
-  //   {ordinal} is their spot in the member count (e.g. "42nd").
+  // Giveaway claim checker — when someone opens a "Giveaway Claim/Sponsor"
+  // ticket, these channels get scanned for a message mentioning them with
+  // an amount matching what they typed for "How much did you win?" — the
+  // result (found/not found, with a jump-to-win button) gets posted in the
+  // ticket automatically.
+  giveawayCheck: {
+    channels: ["1456051574056026112", "1505822932327202816", "1477093104849912008"], // the channels your giveaway/tracker bot posts wins in
+    botId: "", // optional — only check messages from this bot's user ID; leave "" to check every message in those channels
+    searchLimit: 500 // how many recent messages to scan per channel (clamped 50-5000)
+  },
+  // Tickets with no new messages for this long get closed automatically
+  // (transcript DM'd to the opener + logged, same as a normal close, just
+  // labelled "Auto Closed" / "Inactive for N days"). Digout/base building
+  // (serviceCategories) tickets use serviceInactivityMs instead of the
+  // regular inactivityMs — see index.js's checkAutoCloseTickets().
+  autoClose: {
+    enabled: true,
+    inactivityMs: 5 * 24 * 60 * 60 * 1000, // 5 days — buying/selling/partnership/giveaway/gamble/help/buy-ad tickets
+    serviceInactivityMs: 10 * 24 * 60 * 60 * 1000, // 10 days — digout/base building (serviceCategories) tickets
+    checkIntervalMs: 15 * 60 * 1000 // how often to scan for stale tickets
+  },
+  categories: {
+    buying: "1514955042958868551",
+    selling: "1479693976087957596",
+    partnership: "1514960184982634517",
+    giveaway: "1477059744643547228",
+    gamble: "1514961845021048944",
+    help: "1479694579912671293"
+  },
+
+  // Buy Ad panel — single "Buy now" button, no modal questions.
+  buyAd: {
+    category: "1547232247407714457", // ticket channel gets created under this category
+    // NOTE: this used to be two separate "role:" keys — in JS object literals a
+    // duplicate key silently overwrites the first, so only 1455703614432481485
+    // was ever actually used. Both are now kept as an array.
+    roles: ["1523683749223600350", "1455703614432481485"] // pinged + given access on every buy ad ticket
+  },
+
+  // Service tickets (build orders — digout / base building)
+  serviceCategories: {
+    digout: "1537362856444567592",
+    basebuilding: "1536144986641530880"
+  },
+  // Once a staff member claims a service ticket, the channel is moved into
+  // this category (out of digout/basebuilding, or whatever other category
+  // gets added to serviceCategories above). Unclaiming moves it straight
+  // back to whichever service category it came from. Set to "" to disable
+  // the move (claims will still work, the channel just won't relocate).
+  serviceClaimedCategory: "1534029689306480651",
+  buildTicketRole: "1536195433393557545", // pinged + given access on every digout/base building ticket
+  digoutPricePerUnit: 1000, // price = L x W x H x this
+  priorityFeePercent: 20,   // rush priority fee, added on top of the base price
+
+  // Roles exempt from ,s (snipe) — if someone with one of these roles
+  // deletes a message, ,s will not be able to show it.
+  snipeBypassRoles: ["1455703614432481485"],
+
+  // Only members with this role can use ,lock / ,unlock
+  lockRole: "1538332080469966998",
+
+  // Staff/Builder applications
+  applicationPanelChannel: "APPLICATION_PANEL_CHANNEL_ID", // where the panel with the dropdown is posted
+  applicationReviewChannels: {
+    staff: "1477265874560749588",   // finished staff applications get posted here for Accept/Deny
+    builder: "1536248721384144947"  // finished builder applications get posted here for Accept/Deny
+  },
+  applicationTimeLimitMs: 3 * 60 * 60 * 1000, // 3 hours
+  applicationsEnabled: {
+    staff: true,
+    builder: true
+  },
+  // Role given automatically when an application is accepted
+  approvedRoles: {
+    staff: "1535572623797387274",
+    builder: "1536195433393557545"
+  },
+  // Role pinged in the review channel when a new application comes in
+  applicationPingRoles: {
+    staff: "1523683749223600350",
+    builder: "1536146868160041070"
+  },
+
+  // Welcome messages (sent when a new member joins)
   welcome: {
-    enabled: true,
-    channelId: '1534029743433715872',
-    message: 'Welcome {user} to {guild}. You are the {ordinal} member. We hope you have a great time!',
-  },
-
-  // ---- Welcome DM ----
-  // Sent directly to a member's DMs when they join (separate from the
-  // channel message above). Sent as an embed description, so Discord
-  // markdown (headers, bold, links) renders. Set enabled to false to
-  // turn this off. If the member has DMs closed, this silently fails
-  // and is logged — it never blocks the channel welcome message.
-  welcomeDM: {
-    enabled: true,
-    message:
-`# [10B QUICKDROP RN! ](https://discord.gg/W7PGEZ9bjU)
-# Why join us?
-**- New and Active Server 💎 
-- Kind and Trusted Staff ♾️ 
-- Best builders and spawner prices 🦴 
-- New and small server so easy to win gws** 💸 
-***Join us Now!***`,
-  },
-
-  // The text shown in the embed when /ticket-panel is run. Edit this
-  // directly to change the wording — it's sent exactly as written below.
-  // The buttons themselves (labels + emoji) still come from
-  // data/ticketCategories.js, this is just the description text above them.
-  ticketPanelDescription:
-`### <:63756redticket:1549053777854726246> Support
-
-> **Open this if you want help or assistance with anything.**
-
-### <:Scammer:1549428770325405706> Staff Report
-
-> **Open this if a staff / builder did something wrong.**
-
-### <:Spawner1:1549428700238315540> Buy/Sell Spawner
-
-> **Open this if you want to buy/sell spawners.**
-
-### <a:3899gift:1537021187450871859> Giveaway Claim
-
-> **Open this to claim a giveaway you won.**
-
-### <:1st246234:1533798054681907291> Giveaway Sponsor
-
-> **Open this if you want to sponsor a giveaway.**`,
-
-  staffRoleId: '1534029589569998888',
-
-  // Role that's exempt from the one-rename-per-ticket limit below — can
-  // rename the same ticket as many times as needed. Everyone else with
-  // staff can only rename a given ticket once.
-  renameExemptRoleId: '1534029586231332986',
-
-  // Category a service ticket (build/dig/mapart/regears) gets moved to
-  // when staff run /payment-ticket in it. Staff keep access — the move
-  // doesn't touch the channel's existing permission overwrites.
-  paymentTicketCategoryId: '1552992052810096680',
-
-  // ---- Vouches ----
-  // - channelId: channel where people type "vouch @user" / "scam vouch @user".
-  // - scammerRoleId: role given out by /scam-vouch add.
-  // - staffVouchChannelId: channel /vouch-send announces confirmed vouches to.
-  // - reportCategoryId: category the scam-report ticket gets created under.
-  //   Leave '' for no category.
-  // - reportPingRoleId: role pinged in the scam-report ticket, on top of
-  //   staffRoleId. Leave '' to only ping staffRoleId.
-  // - higherUpsRoleId: only members with this role (or staff/Administrator)
-  //   can run /scam-vouch. Leave '' to let any staff member use it.
-  vouches: {
-    channelId: '1534029822509187174',
-    scammerRoleId: '1534029592824643734',
-    staffVouchChannelId: '',
-    reportCategoryId: '',
-    reportPingRoleId: '',
-    higherUpsRoleId: '',
-  },
-
-  // Role that always keeps SendMessages in a support ticket, even after
-  // it's claimed and every other role gets locked out. This role is also
-  // granted access to every new ticket when it's created.
-  alwaysCanTypeRoleId: '1534029586231332986',
-
-  // Channel where a copy of every ticket's transcript gets posted when it's
-  // closed (in addition to DMing it to whoever opened the ticket).
-  ticketLogChannelId: '1534030311992721478',
-
-  // ---- Anti-nuke ----
-  // Two protections:
-  // 1) If the SAME person executes banThreshold bans within banWindowMs,
-  //    they get permanently banned too (catches a compromised/rogue account
-  //    with Ban Members going on a spree).
-  // 2) Anyone who pings @everyone, @here, or an id in protectedMentionIds
-  //    (checked as both a role id and a user id) gets permanently banned
-  //    instantly.
-  // - enabled: set to false to turn both off entirely.
-  // - exemptRoleIds / exemptUserIds: NEVER auto-banned by this system, no
-  //   matter what they do. The server owner is always exempt automatically.
-  //   Leave these empty and ANY staff member (including you) doing 3 bans
-  //   in 5 minutes during a real raid, or pinging @everyone for a real
-  //   announcement, will also get banned — add your trusted staff role(s)
-  //   and/or your own user id here to avoid that.
-  // - logChannelId: where anti-nuke bans get announced. Leave '' to skip.
-  // Requires the bot to have "View Audit Log" and "Ban Members" permissions,
-  // and its role positioned above whoever it needs to be able to ban.
-  antiNuke: {
-    enabled: true,
-    banThreshold: 3,
-    banWindowMs: 5 * 60 * 1000,
-    protectedMentionIds: ['1534029599795712010'],
-    exemptRoleIds: [],
-    exemptUserIds: [],
-    logChannelId: '',
-  },
-
-  // Per-ticket-type settings. Keys must match the `id` values in
-  // data/ticketCategories.js. Each one can go to its own category channel
-  // and ping any number of roles. Leave pingRoleIds as [] to only ping
-  // staffRoleId.
-  ticketCategories: {
-    support: {
-      categoryId: '1534029665382170814',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-    staff_report: {
-      categoryId: '1534029678682181703',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-    buy_sell_spawner: {
-      categoryId: '1534029675804889108',
-      pingRoleIds: ['1534029586231332986', '1538867174427332688'],
-    },
-    giveaway_claim: {
-      categoryId: '1534029669140271275',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-    giveaway_sponsor: {
-      categoryId: '1534029672407367690',
-      pingRoleIds: ['1534029589569998888', '1534029586231332986'],
-    },
-
-    // ---- Services panel (/service-panel) ----
-    // Keys match the `id` values in data/serviceCategories.js.
-    // - emoji: shown on the button AND next to the name in the panel embed.
-    //   Normal emojis always show; custom server emojis only show in the
-    //   embed text if the bot is in the server that owns them.
-    // - categoryId: paste the Discord category for each service here. While
-    //   it's '' the ticket channels are created with no category.
-    // - pingRoleIds: every service ticket pings all of these roles.
-    build: {
-      emoji: '<:BlocksPlaced52234234:1533798033320575158>',
-      categoryId: '1534029693697921225',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-    dig: {
-      emoji: '<:BlocksBroken5234234:1533798031944843408>',
-      categoryId: '1534029697099370597',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-    mapart: {
-      emoji: '<:Map:1551849803141615667>',
-      categoryId: '1534029700601610401',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-    regears: {
-      emoji: '<:shulker:1551849753749360735>',
-      categoryId: '1534029704275955713',
-      pingRoleIds: [
-        '1534057976208560228',
-        '1534029545957625978',
-        '1534029542707171418',
-        '1534484843101032538',
-        '1534029586231332986',
-      ],
-    },
-  },
-
-  // Title of the embed posted by /service-panel.
-  servicePanelTitle: "Donut District's DonutSMP Services",
-
-  // Per-application-type settings. Keys must match the keys in
-  // data/applicationQuestions.js (staff_helper, builder, partner_manager).
-  // - reviewChannelId: an EXISTING channel (NOT a category) where finished
-  //   applications get posted with Accept/Decline buttons. Make this
-  //   staff-only — applicants never see it, they answer questions over DM
-  //   with the bot instead.
-  // - pingRoleId: role pinged in reviewChannelId when a submission lands,
-  //   and also the role pinged in the ticket created by the "Open a Ticket"
-  //   button on an application
-  // - acceptedRoleId: role given to the applicant when Accepted (leave '' to skip)
-  // - ticketCategoryId: category the "Open a Ticket" button creates its
-  //   channel under (staff can open this from the application review message
-  //   to pull the applicant into a channel before deciding)
-  applicationCategories: {
-    staff_helper: {
-      reviewChannelId: '1534029928683798640',
-      pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1535942602258522132',
-      ticketCategoryId: '1534867123266912299',
-    },
-    builder: {
-      reviewChannelId: '1534029932563529828',
-      pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1535942667375087639',
-      ticketCategoryId: '1534917203768643775',
-    },
-    partner_manager: {
-      reviewChannelId: '1551789080050671748',
-      pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1534499230406938684',
-      ticketCategoryId: '1551789632956665957',
-    },
-    media_manager: {
-      reviewChannelId: '1552639019232395344',
-      pingRoleId: '1534029586231332986',
-      acceptedRoleId: '1550876060780859542',
-      ticketCategoryId: '1552665115206352966',
-    },
-  },
-
-  // ---- Levels ----
-  // - channelId: where "<user> has reached level N" messages get posted.
-  // - maxLevel: XP stops at this level (no more level-up messages after it).
-  // - xpMin / xpMax: XP given per message (random in this range), at most
-  //   once every cooldownSeconds per person. Tuned so level 10 takes about
-  //   6.2 hours of chatting non-stop (one qualifying message every
-  //   cooldownSeconds) — 10-18 XP per message (avg 14) with a 60 second
-  //   cooldown. Real progress will be slower since nobody chats
-  //   nonstop; treat this as the fastest-possible pace, not the typical one.
-  //   (Arcane's own defaults are 15-40 XP with a 60 second cooldown, which
-  //   reaches level 10 in about 3.2 hours nonstop.)
-  // - xpChannelIds: leave [] so messages in every channel count, or list
-  //   channel ids to ONLY count messages in those channels.
-  // Chatting inside ticket channels never earns XP.
-  levels: {
-    channelId: '1534029753948831776',
-    maxLevel: 500,
-    xpMin: 10,
-    xpMax: 18,
-    cooldownSeconds: 60,
-    xpChannelIds: [],
-
-    // Role rewards: paste the role ID for each level (leave '' to skip a
-    // level). On a level-up the member gets the highest reward role they've
-    // reached. The bot needs the Manage Roles permission, and its own role
-    // must sit ABOVE these roles in Server Settings > Roles.
-    roleRewards: {
-      3: '1534061530713292892',
-      6: '1534061673525280918',
-      9: '1534061765082742875',
-      12: '1534061849832718397',
-      15: '1534061982926241793',
-      18: '1534062082050363472',
-      21: '1534062335738511463',
-      24: '1534064671462654052',
-      27: '1534064768472715316',
-      30: '1534064837988978829',  
-    },
-    // false = keep only the highest reward role (lower ones get removed).
-    // true = keep every reward role they've earned.
-    stackRoleRewards: false,
-  },
-
-  // ---- Sticky roles ----
-  // When someone leaves and rejoins, the bot gives back the roles they had.
-  // - enabled: set to false to turn this off.
-  // - ignoreRoleIds: roles that should NOT come back (paste role ids, e.g. your
-  //   staff roles, if you'd rather hand those out again by hand).
-  stickyRoles: {
-    enabled: true,
-    ignoreRoleIds: [],
-  },
-
-  // ---- Payment tracker (/track payment) ----
-  // The bot finds out how much money the payer and the receiver have by
-  // running the Donut Stats bot's !stats command (https://www.donutstats.net/)
-  // and reading its reply. It does that when the payment is started and again
-  // every pollSeconds, until the amount has moved or the time runs out.
-  //
-  // Setup: this bot has to be in the server where the Donut Stats bot is, and
-  // needs View Channel, Send Messages and Read Message History in the channel
-  // below (plus Manage Messages if you want it to clean up after itself).
-  // Use a channel nobody else chats in — the bot posts "!stats <name>" there.
-  // Run /track test to check the setup.
-  //
-  // - statsChannelId: the channel (in the Donut Stats server) where the bot
-  //   runs the command. Right-click the channel > Copy Channel ID.
-  // - statsBotId: the Donut Stats bot's user id. Optional, but stops the bot
-  //   from mistaking some other bot's message for the answer.
-  // - statsCommand: what gets typed before the name.
-  // - replyTimeoutSeconds: how long to wait for the Donut Stats bot to answer.
-  // - deleteMessages: true = the bot deletes its "!stats" message and the
-  //   answer afterwards (only works where it has Manage Messages).
-  // - moneyRegex: leave '' to auto-detect "Money: ..." in the reply. If
-  //   /track test can't read the reply, put your own pattern here as a string.
-  //   Group 1 must be the number and group 2 the optional k/m/b suffix.
-  // - staffOnly: true = only staff can run /track payment.
-  // - pollSeconds: how often balances are re-checked (minimum 20). Each check
-  //   is two !stats commands per payment, so keep this reasonable.
-  // - maxActive: most payments that can be tracked at the same time.
-  // - maxDurationDays: longest "time to pay" someone can set.
-  // - requireBoth: true = the payer's money must go DOWN and the receiver's
-  //   money must go UP by the amount before it counts as paid (safest — one
-  //   side alone can move for other reasons, like /sell or /shop).
-  //   false = either side moving by the amount is enough.
-  // Trackers only resolve automatically (paid via the balance check, or
-  // expired if time runs out) — the only button on one is Cancel.
-  payments: {
-    statsChannelId: '1551805869862162512',
-    statsBotId: '1321520416677695559',
-    statsCommand: '!stats',
-    replyTimeoutSeconds: 20,
-    deleteMessages: true,
-    moneyRegex: '',
-    staffOnly: true,
-    pollSeconds: 30,
-    maxActive: 10,
-    maxDurationDays: 7,
-    requireBoth: true,
-  },
-
-  // Timezone for the weekly points reset (Monday 1:00 AM).
-  timezone: 'Europe/Berlin',
+    channel: "1466269532615086101", // channel where the welcome message gets posted
+    description:
+      "Make sure to read <#1466270062322384926> \n" +
+      "Enter all the giveaways below:\n" +
+      "<#1456051574056026112> \n" +
+      "<#1505822932327202816> \n" +
+      "And watch out for <#1477093104849912008> \n" +
+      "Make a <#1536144548269658183> Build ticket to order a build or digout\n" +
+      "Make sure to show all channels aswell!\n\n" +
+      "Enjoy your stay!"
+  }
 };
