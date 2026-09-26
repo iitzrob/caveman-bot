@@ -4,10 +4,31 @@ const config = require('../config');
 // Sticky roles: when someone leaves the server, their roles are saved to
 // data/stickyRoles.json. If they join back, the bot gives those roles back.
 // Settings are in config.js under `stickyRoles`.
+//
+// Only users explicitly turned on via /sticky-roles user:<user> are tracked —
+// see data/stickyRolesUsers.json (just a set of user IDs), managed by
+// enableSticky/disableSticky/isStickyEnabled below.
 const cfg = { enabled: true, ignoreRoleIds: [], ...(config.stickyRoles || {}) };
 
 // Shape: { "<userId>": { roles: ["<roleId>", ...], leftAt: 1700000000000 } }
 const store = createStore('stickyRoles.json', {});
+// Shape: { "<userId>": true }
+const enabledStore = createStore('stickyRolesUsers.json', {});
+
+function isStickyEnabled(userId) {
+  return Boolean(enabledStore.get(userId));
+}
+
+function enableSticky(userId) {
+  enabledStore.set(userId, true);
+}
+
+function disableSticky(userId) {
+  enabledStore.delete(userId);
+  // Also drop any snapshot already saved for them, so a stale one can't get
+  // restored later if sticky roles get re-enabled for someone else's roles.
+  store.delete(userId);
+}
 
 // Roles worth remembering. @everyone is skipped, and so are "managed" roles
 // (the ones Discord controls itself: bot roles, Server Booster, integrations),
@@ -18,12 +39,14 @@ function rememberableRoles(member) {
     .map((role) => role.id);
 }
 
-// Someone left (or was kicked/banned): save what they had.
+// Someone left (or was kicked/banned): save what they had, but only if an
+// admin turned sticky roles on for them via /sticky-roles.
 function handleMemberRemove(member) {
   if (!cfg.enabled || member.guild.id !== config.guildId) return;
   // A "partial" member is one Discord didn't send full details for, so their
   // roles are unknown. cacheAllMembers() below makes this rare.
   if (member.partial || member.user.bot) return;
+  if (!isStickyEnabled(member.id)) return;
 
   const roles = rememberableRoles(member);
   if (roles.length) store.set(member.id, { roles, leftAt: Date.now() });
@@ -73,4 +96,11 @@ async function cacheAllMembers(client) {
   if (members) console.log(`[sticky roles] Loaded ${members.size} members, roles will be saved when they leave.`);
 }
 
-module.exports = { handleMemberRemove, handleMemberAdd, cacheAllMembers };
+module.exports = {
+  handleMemberRemove,
+  handleMemberAdd,
+  cacheAllMembers,
+  isStickyEnabled,
+  enableSticky,
+  disableSticky,
+};
