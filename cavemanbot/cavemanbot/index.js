@@ -36,6 +36,7 @@ const {
 } = require('./handlers/applicationHandlers');
 const { handleLeaderboardRoleSelect } = require('./handlers/leaderboardHandlers');
 const { handleBuildFinishAgree, handleBuildFinishDisagree } = require('./utils/buildFinishActions');const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
+const { handleReactionRoleAdd, handleReactionRoleRemove } = require('./handlers/reactionRoleHandlers');
 
 const client = new Client({
   intents: [
@@ -44,10 +45,12 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessageReactions,
   ],
-  // Needed so DM channels/messages arrive properly — applications are now
-  // answered over DM instead of in a per-applicant guild channel.
-  partials: [Partials.Channel, Partials.Message],
+  // Channel/Message: DM channels/messages arrive properly for applications.
+  // Reaction/User: reaction-role clicks still work on a panel message the
+  // bot hasn't cached (e.g. right after a restart).
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User],
 });
 
 // Load slash commands
@@ -158,6 +161,13 @@ client.on(Events.MessageCreate, (message) => {
   handleLevelMessage(message).catch((err) => console.error('[levels] Error handling message:', err));
   handleAfkMessage(message).catch((err) => console.error('[afk] Error handling message:', err));
   handleVouchMessage(message).catch((err) => console.error('[vouches] Error handling message:', err));
+});
+
+client.on(Events.MessageReactionAdd, (reaction, user) => {
+  handleReactionRoleAdd(reaction, user).catch((err) => console.error('[reaction roles] Error on add:', err));
+});
+client.on(Events.MessageReactionRemove, (reaction, user) => {
+  handleReactionRoleRemove(reaction, user).catch((err) => console.error('[reaction roles] Error on remove:', err));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
