@@ -431,6 +431,21 @@ async function claimTicket(interaction) {
 
   ticketStore.update(interaction.channel.id, { claimedBy: interaction.user.id });
 
+  // Service tickets (build/dig/mapart/regears) also get moved into the
+  // shared "claimed" category, so staff can see in-progress work in one
+  // place. The category it came from is saved on the ticket's stored meta
+  // (survives a bot restart) so unclaimTicket can move it back.
+  if (
+    SERVICE_TICKET_IDS.has(meta.category)
+    && config.claimedServiceCategoryId
+    && interaction.channel.parentId !== config.claimedServiceCategoryId
+  ) {
+    ticketStore.update(interaction.channel.id, { preClaimCategoryId: interaction.channel.parentId });
+    await interaction.channel.setParent(config.claimedServiceCategoryId, { lockPermissions: false }).catch((err) => {
+      console.error('Failed to move claimed service ticket to claimedServiceCategoryId:', err);
+    });
+  }
+
   const embed = interaction.message.embeds[0]
     ? EmbedBuilder.from(interaction.message.embeds[0]).setFooter({ text: `Claimed by ${interaction.user.tag}` })
     : null;
@@ -475,6 +490,14 @@ async function unclaimTicket(interaction) {
   await interaction.channel.permissionOverwrites.delete(meta.claimedBy).catch(() => {});
 
   ticketStore.update(interaction.channel.id, { claimedBy: null });
+
+  // Move a service ticket back to whichever category it was claimed out of.
+  if (SERVICE_TICKET_IDS.has(meta.category) && meta.preClaimCategoryId) {
+    ticketStore.update(interaction.channel.id, { preClaimCategoryId: null });
+    await interaction.channel.setParent(meta.preClaimCategoryId, { lockPermissions: false }).catch((err) => {
+      console.error('Failed to move unclaimed service ticket back to its category:', err);
+    });
+  }
 
   const embed = withoutFooter(interaction.message.embeds[0]);
 
