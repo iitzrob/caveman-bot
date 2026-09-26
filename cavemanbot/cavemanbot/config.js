@@ -94,7 +94,7 @@ module.exports = {
   vouches: {
     channelId: '1534029822509187174',
     scammerRoleId: '1534029592824643734',
-    staffVouchChannelId: '1551828897920974909',
+    staffVouchChannelId: '',
     reportCategoryId: '',
     reportPingRoleId: '',
     higherUpsRoleId: '',
