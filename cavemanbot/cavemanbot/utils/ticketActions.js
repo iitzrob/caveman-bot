@@ -416,6 +416,13 @@ async function claimTicket(interaction) {
     });
   }
 
+  // Ack immediately: everything below is a chain of real Discord API calls
+  // (role overwrite edits, possibly a category move) that can add up to
+  // more than 3 seconds, which would make interaction.update() below throw
+  // "Unknown interaction" and leave the button/embed unchanged with no
+  // visible error. Deferring first buys the full 15-minute webhook window.
+  await interaction.deferUpdate();
+
   const roleIds = meta.rolesWithAccess || [];
   for (const roleId of roleIds) {
     if (roleId === ALWAYS_CAN_TYPE_ROLE_ID) continue; // this role always keeps access
@@ -450,7 +457,7 @@ async function claimTicket(interaction) {
     ? EmbedBuilder.from(interaction.message.embeds[0]).setFooter({ text: `Claimed by ${interaction.user.tag}` })
     : null;
 
-  await interaction.update({
+  await interaction.editReply({
     embeds: embed ? [embed] : interaction.message.embeds,
     components: [claimedRow()],
   });
@@ -483,6 +490,14 @@ async function unclaimTicket(interaction) {
     });
   }
 
+  // Ack immediately: everything below is a chain of real Discord API calls
+  // (role overwrite edits, an overwrite delete, possibly a category move)
+  // that can add up to more than 3 seconds, which would make
+  // interaction.update() below throw "Unknown interaction" and leave the
+  // button/embed unchanged with no visible error. Deferring first buys the
+  // full 15-minute webhook window.
+  await interaction.deferUpdate();
+
   const roleIds = meta.rolesWithAccess || [];
   for (const roleId of roleIds) {
     await interaction.channel.permissionOverwrites.edit(roleId, { SendMessages: true }).catch(() => {});
@@ -501,7 +516,7 @@ async function unclaimTicket(interaction) {
 
   const embed = withoutFooter(interaction.message.embeds[0]);
 
-  await interaction.update({
+  await interaction.editReply({
     embeds: embed ? [embed] : interaction.message.embeds,
     components: [unclaimedRow()],
   });
