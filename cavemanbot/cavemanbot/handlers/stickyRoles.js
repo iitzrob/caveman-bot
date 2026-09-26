@@ -53,9 +53,14 @@ function handleMemberRemove(member) {
   else store.delete(member.id);
 }
 
-// Someone joined: give back whatever they had when they left.
+// Someone joined: give back whatever they had when they left — but only if
+// sticky roles are currently turned on for them. This check matters even
+// though handleMemberRemove already gates on it, because a saved snapshot
+// from a *previous* time they were enabled (or from before this opt-in
+// system existed) could otherwise still be sitting in the file.
 async function handleMemberAdd(member) {
   if (!cfg.enabled || member.guild.id !== config.guildId || member.user.bot) return;
+  if (!isStickyEnabled(member.id)) return;
 
   const saved = store.get(member.id);
   if (!saved || !saved.roles || !saved.roles.length) return;
@@ -93,7 +98,7 @@ async function cacheAllMembers(client) {
     console.warn('[sticky roles] Could not load the member list:', err.message);
     return null;
   });
-  if (members) console.log(`[sticky roles] Loaded ${members.size} members, roles will be saved when they leave.`);
+  if (members) console.log(`[sticky roles] Loaded ${members.size} members. Roles are only saved for users an admin has turned sticky roles on for with /sticky-roles.`);
 }
 
 module.exports = {
