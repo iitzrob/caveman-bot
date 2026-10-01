@@ -101,7 +101,11 @@ async function handleTicketOpen(interaction) {
       name: `${categoryDef.id.replace(/_/g, '-')}-${interaction.user.username}`,
       parentId: catCfg.categoryId,
       openerId: interaction.user.id,
-      roleIds: [config.staffRoleId, ...pingRoleIds, config.alwaysCanTypeRoleId],
+      // Buy/Sell Spawner tickets are hidden from the regular staff role —
+      // only its own pingRoleIds (the 2 spawner roles) get access.
+      roleIds: categoryId === 'buy_sell_spawner'
+        ? [...pingRoleIds, config.alwaysCanTypeRoleId]
+        : [config.staffRoleId, ...pingRoleIds, config.alwaysCanTypeRoleId],
     }));
   } catch (err) {
     console.error(
