@@ -88,17 +88,24 @@ async function handleMemberAdd(member) {
 
 // Discord only tells the bot about members it already knows, so without this
 // a member who left before the bot ever "saw" them would have no roles to save.
-// Loading everyone once at startup fixes that.
+// Only people sticky roles is turned on for matter, so just those members are
+// loaded (not the whole server, which used a lot of memory).
 async function cacheAllMembers(client) {
   if (!cfg.enabled) return;
   const guild = await client.guilds.fetch(config.guildId).catch(() => null);
   if (!guild) return;
 
-  const members = await guild.members.fetch().catch((err) => {
+  const ids = Object.keys(enabledStore.all() || {});
+  if (!ids.length) {
+    console.log('[sticky roles] Nobody has sticky roles turned on yet, so no members were loaded.');
+    return;
+  }
+
+  const members = await guild.members.fetch({ user: ids }).catch((err) => {
     console.warn('[sticky roles] Could not load the member list:', err.message);
     return null;
   });
-  if (members) console.log(`[sticky roles] Loaded ${members.size} members. Roles are only saved for users an admin has turned sticky roles on for with /sticky-roles.`);
+  if (members) console.log(`[sticky roles] Loaded ${members.size} member(s) with sticky roles turned on.`);
 }
 
 module.exports = {
