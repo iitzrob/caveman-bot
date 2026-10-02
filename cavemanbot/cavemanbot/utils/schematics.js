@@ -145,48 +145,79 @@ function makeTitle(fileName, creatorName) {
 }
 
 
-// Credit lines the bot understands in a forwarded/posted message. Any of
-// these work (bold, no bold, with or without a colon where it is safe):
-//   Original Creator: Nevio        Original Designer - Nevio
-//   Credits: Nevio                 Credit to Nevio
-//   Designed by Nevio              Made by / Built by / Created by Nevio
-//   Author: Nevio                  Builder: Nevio
-//   <the name can also be a @mention>, or sit on the NEXT line.
-// Words like "creator/designer/credit" need a ":" or "-" (or "to") after them,
-// so normal sentences such as "without credit or permission" are ignored.
-const NOUN_LABEL = /(?:^|[^a-z0-9])(?:orig(?:inal)?\.?\s*)?(?:creators?|designers?|builders?|authors?|credits?)\s*(?:[:\-–—=]+|(?:goes\s+|go\s+)?to\b|is\b)\s*(.*)$/i;
-const BY_LABEL = /(?:^|[^a-z0-9])(?:made|built|build|designed|design|created|crafted|schematic)\s*by\s*[:\-–—]?\s*(.+)$/i;
-// A line that is ONLY a label (name is on the next line), e.g. "Original Designer".
-const BARE_LABEL = /^(?:orig(?:inal)?\.?\s*)?(?:creators?|designers?|builders?|authors?|credits?)\s*[:\-–—]?\s*$/i;
+// ---------- credit reading (forwarded / posted message text) ----------
+// Understands lots of wordings, bold or not, any separator, name on the next line:
+//   Original Creator: Nevio      Original Designer - Nevio     Credits | Nevio
+//   Credit to Nevio              Credits go to Nevio           Credit: <@123456789012345678>
+//   Designed by Nevio            Made / Built / Created / Crafted by Nevio
+//   Author: Nevio                Builder » Nevio               Original Design: Nevio
+const LABEL_WORDS = '(?:creators?|designers?|design|builders?|build|authors?|credits?|credited)';
+const SEP = '[:\\-–—=|>»›→➜➔➤•·~]';
+const NOUN_LABEL = new RegExp(
+  '(?:^|[^a-z0-9])(?:orig(?:inal)?\\.?\\s*)?' + LABEL_WORDS +
+  '\\s*(?:' + SEP + '+|(?:goes\\s+|go\\s+)?to\\b|is\\b)\\s*(.*)$', 'i');
+// "Credits Nevio" / "Creator @Nevio" with no separator: only when the label starts the line.
+const START_LABEL = new RegExp(
+  '^[^a-z0-9<]*(?:orig(?:inal)?\\.?\\s*)?' + LABEL_WORDS + '\\s+(.+)$', 'i');
+const BY_LABEL = /(?:^|[^a-z0-9])(?:made|built|build|designed|design|created|crafted|schematic|original\s+design|original\s+build)\s*by\s*[:\-–—]?\s*(.+)$/i;
+// A line that is ONLY a label (the name is on the next line), e.g. "Original Designer".
+const BARE_LABEL = new RegExp('^[^a-z0-9]*(?:orig(?:inal)?\\.?\\s*)?' + LABEL_WORDS + '\\s*(?:' + SEP + ')*\\s*$', 'i');
+// Lines that talk ABOUT credit instead of giving it (the bot's own warning, etc).
+const NOT_A_CREDIT = /without\s+credit|give\s+credit|giving\s+credit|take\s+credit|taking\s+this|permission|steal|no\s+credit|remove\s+credit|credit\s+or\b/i;
+const JUNK_VALUE = /^(?:n\/?a|none|unknown|nobody|no\s*one|me|myself|the|a|an|their|his|her|them|us|everyone|anyone|whoever|others?|original|orig|and|or|for|of|is)\b/i;
+
+function stripFormat(t) {
+  return String(t || '')
+    .replace(/<a?:\w+:\d+>/g, ' ')                 // custom emojis
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/)[^)]*\)/g, '$1') // [name](link) -> name
+    .replace(/<?https?:\/\/\S+>?/gi, ' ')          // bare links
+    .replace(/discord\.gg\/\S+/gi, ' ')
+    .replace(/[*~`]/g, '')                          // bold / strike / code (keep _ and | for now)
+    .replace(/^[>#\-\s]+(?=\S)/, (m) => (/-/.test(m) && !/^\s*-\s+\S/.test(m + 'x') ? m : ''))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 function matchCreditLine(line) {
-  const m = line.match(NOUN_LABEL) || line.match(BY_LABEL);
-  return m ? m[1] : null;
+  if (!line || NOT_A_CREDIT.test(line)) return null;
+  let m = line.match(NOUN_LABEL) || line.match(BY_LABEL);
+  if (m) return m[1];
+  m = line.match(START_LABEL);
+  if (m && !JUNK_VALUE.test(m[1].trim())) return m[1];
+  return null;
+}
+
+function cleanValue(t) {
+  return String(t || '')
+    .split(/\s[|•·]\s|\s[-–—]{1,2}\s(?=[a-z]+:)/i)[0]   // cut "Name | other stuff"
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ' ')   // emojis
+    .replace(/^[\s_@:\-–—=|>»›→➜➔➤•·~]+/, '')
+    .replace(/[\s_|•·]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // Reads the text of the forwarded/posted message itself. Looks for
-//   **Title line**                      (first line, wrapped in bold)
+//   **Title line**   (first line, wrapped in bold)
 //   a credit line (see above)
 // Returns { title, creatorId, creatorName }, each null when not found.
 function readPostText(text) {
   const result = { title: null, creatorId: null, creatorName: null };
-  // Only strip formatting characters (not underscores) so @mentions stay intact.
-  const strip = (t) => t.replace(/[*~`|]/g, '');
-  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (!lines.length) return result;
-
-  const clean = (t) => strip(t).replace(/^[\s_@]+|[\s_]+$/g, '').trim();
+  const rawLines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!rawLines.length) return result;
+  // Keep mentions exactly as they are; strip formatting from everything else.
+  const lines = rawLines.map((l) => stripFormat(l.replace(/<@!?(\d{15,25})>/g, ' <@$1> ')).replace(/< @/g, '<@'));
 
   let creditLineIndex = -1;
   for (let i = 0; i < lines.length; i++) {
-    const plain = strip(lines[i]).trim();
+    const plain = lines[i];
     let rest = matchCreditLine(plain);
     if (rest === null && BARE_LABEL.test(plain)) rest = '';
     if (rest === null) continue;
 
     // Name is on the next line ("**Original Designer**" then "Nevio").
     if (!rest.trim() || BARE_LABEL.test(plain)) {
-      const next = lines[i + 1] ? strip(lines[i + 1]).trim() : '';
+      const next = lines[i + 1] || '';
       if (!next || matchCreditLine(next) !== null || BARE_LABEL.test(next)) continue;
       rest = next;
     }
@@ -200,8 +231,8 @@ function readPostText(text) {
     }
     if (/<@&\d+>|<#\d+>/.test(rest)) continue; // roles/channels are not creators
 
-    let value = clean(rest).replace(/\s+/g, ' ');
-    if (!value) continue;
+    let value = cleanValue(rest);
+    if (!value || JUNK_VALUE.test(value)) continue;
     if (value.length > 40) value = value.slice(0, 40).trim();
     // If it is a creator from the config list, use their configured id/name.
     const squashed = value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -217,9 +248,9 @@ function readPostText(text) {
 
   // Title: only the FIRST line, and only when it is wrapped in **bold**
   // (and is not itself the credit line).
-  const first = lines[0].match(/^\*\*(.+?)\*\*$/);
-  if (first && creditLineIndex !== 0 && matchCreditLine(strip(first[1])) === null && !BARE_LABEL.test(strip(first[1]).trim())) {
-    const title = clean(first[1]).replace(/\s+/g, ' ');
+  const first = rawLines[0].match(/^\*\*(.+?)\*\*$/);
+  if (first && creditLineIndex !== 0 && matchCreditLine(stripFormat(first[1])) === null && !BARE_LABEL.test(stripFormat(first[1]))) {
+    const title = stripFormat(first[1]).replace(/^[\s_@]+|[\s_]+$/g, '');
     if (title) result.title = title;
   }
   return result;
