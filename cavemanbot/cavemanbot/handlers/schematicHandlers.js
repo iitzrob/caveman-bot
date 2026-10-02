@@ -35,8 +35,9 @@ function collectAttachments(message) {
   return [...found.values()];
 }
 
-// Text of the message itself AND of anything it forwards, including text
-// that lives inside embeds (many bots post their text in an embed).
+// Text of the message itself AND of anything it forwards. Reads the normal text,
+// embeds, AND newer "components" messages (text blocks / containers / sections),
+// which many bots use instead of plain text.
 function embedText(embed) {
   const d = embed && (embed.data || embed);
   if (!d) return '';
@@ -46,14 +47,33 @@ function embedText(embed) {
   return out.filter(Boolean).join('\n');
 }
 
+function componentText(node, depth = 0) {
+  if (!node || depth > 8) return '';
+  const out = [];
+  const d = node.data || node;
+  if (typeof d.content === 'string') out.push(d.content);
+  if (typeof node.content === 'string' && node.content !== d.content) out.push(node.content);
+  const kids = [].concat(
+    node.components ? [...(node.components.values ? node.components.values() : node.components)] : [],
+    d.components && d.components !== node.components ? [...(d.components.values ? d.components.values() : d.components)] : [],
+    node.accessory ? [node.accessory] : [],
+    d.accessory && d.accessory !== node.accessory ? [d.accessory] : []
+  );
+  for (const kid of kids) out.push(componentText(kid, depth + 1));
+  return out.filter(Boolean).join('\n');
+}
+
+function partsOf(m) {
+  const parts = [m.content || ''];
+  for (const embed of m.embeds || []) parts.push(embedText(embed));
+  for (const row of m.components || []) parts.push(componentText(row));
+  return parts;
+}
+
 function collectText(message) {
-  const parts = [message.content || ''];
-  for (const embed of message.embeds || []) parts.push(embedText(embed));
+  const parts = partsOf(message);
   if (message.messageSnapshots) {
-    for (const snapshot of message.messageSnapshots.values()) {
-      parts.push(snapshot.content || '');
-      for (const embed of snapshot.embeds || []) parts.push(embedText(embed));
-    }
+    for (const snapshot of message.messageSnapshots.values()) parts.push(...partsOf(snapshot));
   }
   return parts.filter(Boolean).join('\n');
 }
@@ -157,7 +177,7 @@ async function handleSchematicMessage(message) {
     // 1) Use what the message text says (title + "Original Creator: ..."),
     // 2) otherwise fall back to the file name.
     const rawText = collectText(message);
-    console.log(`[schematics] text seen (${rawText.length} chars): ${JSON.stringify(rawText.slice(0, 300))}`);
+    console.log(`[schematics] text seen (${rawText.length} chars): ${JSON.stringify(rawText.slice(0, 1500))}`);
     const textInfo = schematics.readPostText(rawText);
     const fromName = schematics.findCreator(fileNames);
     const blocked = new Set((cfg.blockedCreatorIds || []).map(String));
