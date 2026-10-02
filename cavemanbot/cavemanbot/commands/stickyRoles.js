@@ -34,6 +34,8 @@ module.exports = {
     }
 
     enableSticky(user.id);
+    // Keep this member loaded so their roles are known if they leave.
+    await interaction.guild.members.fetch(user.id).catch(() => null);
     return interaction.reply({
       content: `Sticky roles turned **on** for <@${user.id}>. If they leave and rejoin, their current roles will be restored.`,
       allowedMentions: { parse: [] },
