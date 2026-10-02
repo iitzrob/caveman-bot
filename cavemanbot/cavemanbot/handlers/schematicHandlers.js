@@ -160,8 +160,21 @@ async function handleSchematicMessage(message) {
     console.log(`[schematics] text seen (${rawText.length} chars): ${JSON.stringify(rawText.slice(0, 300))}`);
     const textInfo = schematics.readPostText(rawText);
     const fromName = schematics.findCreator(fileNames);
-    const creatorId = textInfo.creatorId || fromName.creatorId;
-    const creatorName = textInfo.creatorName || fromName.creatorName;
+    const blocked = new Set((cfg.blockedCreatorIds || []).map(String));
+    // Credit order: message text first, then the file name. Blocked ids are skipped.
+    const sources = [['text', textInfo], ['file name', fromName]];
+    let creatorId = null;
+    let creatorName = null;
+    let creatorSource = 'none';
+    for (const [label, info] of sources) {
+      if (info.creatorId && !blocked.has(String(info.creatorId))) {
+        creatorId = info.creatorId;
+        creatorName = info.creatorName;
+        creatorSource = label;
+        break;
+      }
+    }
+    console.log(`[schematics] credit -> ${creatorId || 'none'} (from ${creatorSource})`);
     const title = textInfo.title || schematics.makeTitle(fileNames[0], creatorName);
     console.log(`[schematics] text title: ${textInfo.title || 'none'} | text creator: ${textInfo.creatorName || 'none'}`);
 
