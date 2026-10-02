@@ -116,7 +116,8 @@ function findCreator(fileNames) {
 function makeTitle(fileName, creatorName) {
   let text = stripPromo(baseName(fileName));
 
-  if (creatorName) {
+  const keepName = (cfg.keepNameInTitle || []).some((n) => String(n).toLowerCase() === String(creatorName || '').toLowerCase());
+  if (creatorName && !keepName) {
     // Remove the creator name (and a "by" in front of it); the name may have
     // separators between its letters.
     const loose = [...creatorName.replace(/[^A-Za-z0-9]/g, '')].map(escapeRegex).join('[\\s_\\-.]*');
