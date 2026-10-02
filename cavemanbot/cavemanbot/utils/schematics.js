@@ -144,7 +144,52 @@ function makeTitle(fileName, creatorName) {
   return title;
 }
 
+
+// Reads the text of the forwarded/posted message itself. Looks for
+//   **Title line**                      (first line, wrapped in bold)
+//   **Original Creator: Nevio**         (or a @mention instead of a name)
+// Returns { title, creatorId, creatorName }, each null when not found.
+function readPostText(text) {
+  const result = { title: null, creatorId: null, creatorName: null };
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return result;
+
+  const clean = (t) => t.replace(/[*_~`|]/g, '').trim();
+
+  for (const line of lines) {
+    const match = line.match(/original\s*creators?\s*[:\-–]?\s*(.+)$/i);
+    if (!match) continue;
+    const mention = match[1].match(/<@!?(\d{15,25})>/);
+    if (mention) {
+      result.creatorId = mention[1];
+      result.creatorName = mention[1];
+      break;
+    }
+    let value = clean(match[1]).replace(/\s+/g, ' ');
+    if (!value) continue;
+    if (value.length > 40) value = value.slice(0, 40).trim();
+    // If it is a creator from the config list, use their configured id/name.
+    const squashed = value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let configured = null;
+    for (const [name, userId] of Object.entries(cfg.creators || {})) {
+      if (name.toLowerCase().replace(/[^a-z0-9]/g, '') === squashed) configured = userId;
+    }
+    result.creatorId = configured || value;
+    result.creatorName = value;
+    break;
+  }
+
+  // Title: only the FIRST line, and only when it is wrapped in **bold**.
+  const first = lines[0].match(/^\*\*(.+?)\*\*$/);
+  if (first && !/original\s*creator/i.test(first[1])) {
+    const title = clean(first[1]).replace(/\s+/g, ' ');
+    if (title) result.title = title;
+  }
+  return result;
+}
+
 module.exports = {
+  readPostText,
   nameKey,
   hashKey,
   findDuplicate,
