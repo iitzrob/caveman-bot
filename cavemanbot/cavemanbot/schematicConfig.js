@@ -28,10 +28,14 @@ module.exports = {
   // text (the bot just writes that name). To ping Zyrin, replace 'Zyrin'
   // with his Discord user id in quotes.
   creators: {
-    voidview: '764663858815565865',
     zyrin: 'Zyrin',
     kyle: 'Kyle',
   },
+
+  // User ids that must NEVER be credited (the old template example user).
+  // If one of these ends up as the creator, the bot ignores it and tries the
+  // next source (message text, then file name) instead.
+  blockedCreatorIds: ['764663858815565865'],
 
   // Creators whose name should STAY in the title. Normally the creator's
   // name is cut out of the title ("voidview_christmas_tree" -> "Christmas
