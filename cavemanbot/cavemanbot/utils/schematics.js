@@ -124,6 +124,7 @@ function makeTitle(fileName, creatorName) {
   }
 
   text = text
+    .replace(/\(\s*\d+\s*\)\s*$/, ' ') // copy numbers like "(2)"
     .replace(/[_.]+/g, ' ')
     .replace(/(^|\s)[-–—]+(\s|$)/g, ' ')
     .replace(/\(\s*\)|\[\s*\]/g, ' ')
