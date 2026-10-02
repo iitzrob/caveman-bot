@@ -95,7 +95,7 @@ function makeTitle(fileName, creatorName) {
     // Remove the creator name (and a "by" in front of it); the name may have
     // separators between its letters.
     const loose = [...creatorName.replace(/[^A-Za-z0-9]/g, '')].map(escapeRegex).join('[\\s_\\-.]*');
-    if (loose) text = text.replace(new RegExp('(?:\\bby[\\s_\\-.]+)?' + loose, 'gi'), ' ');
+    if (loose) text = text.replace(new RegExp('(?:\\bby[\\s_\\-.]+)?' + loose + '(?:[\'’]?s\\b)?', 'gi'), ' ');
   }
 
   text = text
