@@ -30,7 +30,15 @@ module.exports = {
   creators: {
     voidview: '764663858815565865',
     zyrin: 'Zyrin',
+    kyle: 'Kyle',
   },
+
+  // Creators whose name should STAY in the title. Normally the creator's
+  // name is cut out of the title ("voidview_christmas_tree" -> "Christmas
+  // Tree"). For the names below it is kept, so "kyles regear" stays
+  // "Kyles Regear" and still credits Kyle. Use the left-side name from
+  // `creators` above.
+  keepNameInTitle: ['kyle'],
 
   // Leaderboard: points each schematic post is worth for the person who
   // forwarded it. Set alsoAddToStaffPoints to true to ALSO add them to the
