@@ -84,6 +84,24 @@ function findCreator(fileNames) {
       if (wanted && squashed.includes(wanted)) return { creatorId: userId, creatorName: name };
     }
   }
+
+  // Not in the list: look for a creator written in the file name itself,
+  // like "Cool Base by Steve.litematic" or "Steve's Cool Base.litematic".
+  // The creator is written as plain text in the post.
+  for (const fileName of fileNames) {
+    const text = baseName(fileName);
+    const match =
+      text.match(/(?:^|[\s_\-.(\[])by[\s_\-.]+([^\-–—()\[\]]+)/i) ||
+      text.match(/^([A-Za-z0-9]+)['’]s[\s_\-.]/);
+    if (!match) continue;
+    let name = match[1].replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!name) continue;
+    name = name
+      .split(' ')
+      .map((word) => (word === word.toLowerCase() ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+      .join(' ');
+    return { creatorId: name, creatorName: name };
+  }
   return { creatorId: null, creatorName: null };
 }
 
@@ -95,7 +113,7 @@ function makeTitle(fileName, creatorName) {
     // Remove the creator name (and a "by" in front of it); the name may have
     // separators between its letters.
     const loose = [...creatorName.replace(/[^A-Za-z0-9]/g, '')].map(escapeRegex).join('[\\s_\\-.]*');
-    if (loose) text = text.replace(new RegExp('(?:\\bby[\\s_\\-.]+)?' + loose + '(?:[\'’]?s\\b)?', 'gi'), ' ');
+    if (loose) text = text.replace(new RegExp('(?:(?<![A-Za-z0-9])by[\\s_\\-.]+)?' + loose + '(?:[\'’]?s\\b)?', 'gi'), ' ');
   }
 
   text = text
