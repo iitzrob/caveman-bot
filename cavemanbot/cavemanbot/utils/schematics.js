@@ -77,10 +77,10 @@ function escapeRegex(text) {
 // or "discord.gg/abc", so only the schematic's name is left.
 function stripPromo(text) {
   return String(text || '')
-    .replace(/(?:https?:\/\/)?discord\.gg\/\S*/gi, ' ')
-    .replace(/(?<![A-Za-z0-9])join\b[\s\S]*?\bfor[\s_\-.]+more\b/gi, ' ')
-    .replace(/(?<![A-Za-z0-9])join\b[\s\S]*?\bdiscord\b/gi, ' ')
-    .replace(/(?<![A-Za-z0-9])discord\b/gi, ' ');
+    .replace(/(?:https?:\/\/)?discord\.(?:gg|com)\/\S*/gi, ' ')
+    .replace(/join[\s_\-.]*[\s\S]*?for[\s_\-.]*more/gi, ' ')
+    .replace(/join[\s_\-.]*[\s\S]*?discord/gi, ' ')
+    .replace(/discord/gi, ' ');
 }
 
 // Looks at the file names for a creator name from config.creators. Returns
@@ -101,7 +101,7 @@ function findCreator(fileNames) {
   for (const fileName of fileNames) {
     const text = baseName(fileName);
     const match =
-      text.match(/(?<![A-Za-z0-9])join[\s_\-.]+([A-Za-z0-9][A-Za-z0-9 _.]*?)['’]s[\s_\-.]+discord/i) ||
+      text.match(/join[\s_\-.]+([A-Za-z0-9][A-Za-z0-9 _.]*?)['’]s[\s_\-.]*discord/i) ||
       text.match(/(?:^|[\s_\-.(\[])by[\s_\-.]+([^\-–—()\[\]]+)/i) ||
       text.match(/^([A-Za-z0-9]+)['’]s[\s_\-.]/);
     if (!match) continue;
@@ -138,10 +138,12 @@ function makeTitle(fileName, creatorName) {
   if (!text) return 'Schematic';
 
   // Capitalise words that are fully lowercase; leave anything else as typed.
-  return text
+  const title = text
     .split(' ')
     .map((word) => (word === word.toLowerCase() ? word.charAt(0).toUpperCase() + word.slice(1) : word))
     .join(' ');
+  console.log(`[schematics] file "${fileName}" -> title "${title}", creator "${creatorName || 'none'}"`);
+  return title;
 }
 
 module.exports = {
