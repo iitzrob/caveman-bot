@@ -24,8 +24,12 @@ module.exports = {
   // case sensitive), right side = that creator's Discord user id.
   // Example: a file called "voidview_christmas_tree.litematic" or
   // "Christmas Tree Gamble - voidview.litematic" credits that user.
+  // The right side can be a Discord user id (the bot mentions them) OR plain
+  // text (the bot just writes that name). To ping Zyrin, replace 'Zyrin'
+  // with his Discord user id in quotes.
   creators: {
     voidview: '764663858815565865',
+    zyrin: 'Zyrin',
   },
 
   // Leaderboard: points each schematic post is worth for the person who
