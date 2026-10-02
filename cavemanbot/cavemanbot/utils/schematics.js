@@ -80,6 +80,7 @@ function stripPromo(text) {
     .replace(/(?:https?:\/\/)?discord\.(?:gg|com)\/\S*/gi, ' ')
     .replace(/join[\s_\-.]*[\s\S]*?for[\s_\-.]*more/gi, ' ')
     .replace(/join[\s_\-.]*[\s\S]*?discord/gi, ' ')
+    .replace(/(?<![A-Za-z0-9])join(?![A-Za-z]).*$/gi, ' ')
     .replace(/discord/gi, ' ');
 }
 
@@ -96,21 +97,16 @@ function findCreator(fileNames) {
   }
 
   // Not in the list: look for a creator written in the file name itself,
-  // like "Cool Base by Steve.litematic" or "Steve's Cool Base.litematic".
-  // The creator is written as plain text in the post.
+  // like "Cool Base by Steve", "Cool Base Made By Steve" or "Steve's Cool Base".
+  // Only ONE word is used as the name, and it is written as plain text.
   for (const fileName of fileNames) {
-    const text = baseName(fileName);
+    const text = stripPromo(baseName(fileName)).replace(/[_.]+/g, ' ');
     const match =
-      text.match(/join[\s_\-.]+([A-Za-z0-9][A-Za-z0-9 _.]*?)['’]s[\s_\-.]*discord/i) ||
-      text.match(/(?:^|[\s_\-.(\[])by[\s_\-.]+([^\-–—()\[\]]+)/i) ||
-      text.match(/^([A-Za-z0-9]+)['’]s[\s_\-.]/);
+      text.match(/(?<![A-Za-z0-9])(?:made|created|built|designed|credits?)?\s*by[\s\-:]+([A-Za-z0-9]+)/i) ||
+      text.match(/^\s*([A-Za-z0-9]+)['’]s\s/);
     if (!match) continue;
-    let name = match[1].replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!name) continue;
-    name = name
-      .split(' ')
-      .map((word) => (word === word.toLowerCase() ? word.charAt(0).toUpperCase() + word.slice(1) : word))
-      .join(' ');
+    let name = match[1];
+    if (name === name.toLowerCase()) name = name.charAt(0).toUpperCase() + name.slice(1);
     return { creatorId: name, creatorName: name };
   }
   return { creatorId: null, creatorName: null };
@@ -124,7 +120,7 @@ function makeTitle(fileName, creatorName) {
     // Remove the creator name (and a "by" in front of it); the name may have
     // separators between its letters.
     const loose = [...creatorName.replace(/[^A-Za-z0-9]/g, '')].map(escapeRegex).join('[\\s_\\-.]*');
-    if (loose) text = text.replace(new RegExp('(?:(?<![A-Za-z0-9])by[\\s_\\-.]+)?' + loose + '(?:[\'’]?s\\b)?', 'gi'), ' ');
+    if (loose) text = text.replace(new RegExp('(?:(?<![A-Za-z0-9])(?:(?:made|created|built|designed)[\\s_\\-.]+)?by[\\s_\\-.]+)?' + loose + '(?:[\'’]?s\\b)?', 'gi'), ' ');
   }
 
   text = text
