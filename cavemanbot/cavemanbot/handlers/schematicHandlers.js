@@ -35,6 +35,15 @@ function collectAttachments(message) {
   return [...found.values()];
 }
 
+// Text of the message itself AND of anything it forwards.
+function collectText(message) {
+  const parts = [message.content || ''];
+  if (message.messageSnapshots) {
+    for (const snapshot of message.messageSnapshots.values()) parts.push(snapshot.content || '');
+  }
+  return parts.filter(Boolean).join('\n');
+}
+
 async function download(attachment) {
   const response = await fetch(attachment.url);
   if (!response.ok) throw new Error(`download failed (${response.status}) for ${attachment.name}`);
@@ -131,8 +140,14 @@ async function handleSchematicMessage(message) {
 
   try {
     const fileNames = toSend.filter((a) => !isImage(a)).map((a) => a.name);
-    const { creatorId, creatorName } = schematics.findCreator(fileNames);
-    const title = schematics.makeTitle(fileNames[0], creatorName);
+    // 1) Use what the message text says (title + "Original Creator: ..."),
+    // 2) otherwise fall back to the file name.
+    const textInfo = schematics.readPostText(collectText(message));
+    const fromName = schematics.findCreator(fileNames);
+    const creatorId = textInfo.creatorId || fromName.creatorId;
+    const creatorName = textInfo.creatorName || fromName.creatorName;
+    const title = textInfo.title || schematics.makeTitle(fileNames[0], creatorName);
+    console.log(`[schematics] text title: ${textInfo.title || 'none'} | text creator: ${textInfo.creatorName || 'none'}`);
 
     await destination.send({
       content: buildPostText(title, creatorId),
