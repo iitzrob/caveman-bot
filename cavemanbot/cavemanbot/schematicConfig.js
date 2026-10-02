@@ -47,7 +47,7 @@ module.exports = {
   pingId: '1534129618473193613',
 
   // Emojis used in the post.
-  emojiNo: '<:Cross:1533798047618695308>',
+  emojiNo: '<a:nooo:1555535760831283220>',
   emojiBlocks: '<:BlocksPlaced52234234:1533798033320575158>',
 
   // File types that count as images (everything else counts as "the file").
