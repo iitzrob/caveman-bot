@@ -35,11 +35,25 @@ function collectAttachments(message) {
   return [...found.values()];
 }
 
-// Text of the message itself AND of anything it forwards.
+// Text of the message itself AND of anything it forwards, including text
+// that lives inside embeds (many bots post their text in an embed).
+function embedText(embed) {
+  const d = embed && (embed.data || embed);
+  if (!d) return '';
+  const out = [d.title, d.description];
+  for (const f of d.fields || []) out.push(`${f.name}: ${f.value}`);
+  if (d.footer && d.footer.text) out.push(d.footer.text);
+  return out.filter(Boolean).join('\n');
+}
+
 function collectText(message) {
   const parts = [message.content || ''];
+  for (const embed of message.embeds || []) parts.push(embedText(embed));
   if (message.messageSnapshots) {
-    for (const snapshot of message.messageSnapshots.values()) parts.push(snapshot.content || '');
+    for (const snapshot of message.messageSnapshots.values()) {
+      parts.push(snapshot.content || '');
+      for (const embed of snapshot.embeds || []) parts.push(embedText(embed));
+    }
   }
   return parts.filter(Boolean).join('\n');
 }
@@ -142,7 +156,9 @@ async function handleSchematicMessage(message) {
     const fileNames = toSend.filter((a) => !isImage(a)).map((a) => a.name);
     // 1) Use what the message text says (title + "Original Creator: ..."),
     // 2) otherwise fall back to the file name.
-    const textInfo = schematics.readPostText(collectText(message));
+    const rawText = collectText(message);
+    console.log(`[schematics] text seen (${rawText.length} chars): ${JSON.stringify(rawText.slice(0, 300))}`);
+    const textInfo = schematics.readPostText(rawText);
     const fromName = schematics.findCreator(fileNames);
     const creatorId = textInfo.creatorId || fromName.creatorId;
     const creatorName = textInfo.creatorName || fromName.creatorName;
