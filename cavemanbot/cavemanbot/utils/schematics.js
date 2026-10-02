@@ -157,7 +157,7 @@ function readPostText(text) {
   const clean = (t) => t.replace(/[*_~`|]/g, '').trim();
 
   for (const line of lines) {
-    const match = line.match(/original\s*creators?\s*[:\-–]?\s*(.+)$/i);
+    const match = line.match(/(?:orig[a-z]*\s*)?(?:creators?|credits?|made\s*by|built\s*by)\s*[:\-–]\s*(.+)$/i);
     if (!match) continue;
     const mention = match[1].match(/<@!?(\d{15,25})>/);
     if (mention) {
@@ -181,7 +181,7 @@ function readPostText(text) {
 
   // Title: only the FIRST line, and only when it is wrapped in **bold**.
   const first = lines[0].match(/^\*\*(.+?)\*\*$/);
-  if (first && !/original\s*creator/i.test(first[1])) {
+  if (first && !/creator|credit/i.test(first[1])) {
     const title = clean(first[1]).replace(/\s+/g, ' ');
     if (title) result.title = title;
   }
