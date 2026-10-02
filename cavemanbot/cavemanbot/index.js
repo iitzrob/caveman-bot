@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, Partials, Collection, Events, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Collection, Events, ChannelType, Options } = require('discord.js');
 const cron = require('node-cron');
 
 const config = require('./config');
@@ -22,7 +22,7 @@ const { handleAfkMessage } = require('./handlers/afkHandlers');
 const { handleVouchMessage, handleScamVouchButton } = require('./handlers/vouchMessageHandler');
 const { handleVouchSendButton } = require('./handlers/vouchSendHandlers');
 const levels = require('./utils/levels');
-const { handleMemberAdd, handleMemberRemove, cacheAllMembers } = require('./handlers/stickyRoles');
+const { handleMemberAdd, handleMemberRemove, cacheAllMembers, isStickyEnabled } = require('./handlers/stickyRoles');
 const { handleWelcome, handleWelcomeDM } = require('./handlers/welcomeHandlers');
 const {
   handleApplicationSelect,
@@ -53,6 +53,27 @@ const client = new Client({
   // Reaction/User: reaction-role clicks still work on a panel message the
   // bot hasn't cached (e.g. right after a restart).
   partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User],
+
+  // Memory limits: keep only 50 messages per channel and drop caches the bot
+  // never reads. Members are swept from the cache every 10 minutes, except the
+  // bot itself and anyone with sticky roles turned on (their roles must stay known).
+  makeCache: Options.cacheWithLimits({
+    ...Options.DefaultMakeCacheSettings,
+    MessageManager: 50,
+    PresenceManager: 0,
+    VoiceStateManager: 0,
+    StageInstanceManager: 0,
+    GuildScheduledEventManager: 0,
+    ThreadMemberManager: 0,
+  }),
+  sweepers: {
+    ...Options.DefaultSweeperSettings,
+    messages: { interval: 300, lifetime: 1800 },
+    guildMembers: {
+      interval: 600,
+      filter: () => (member) => member.id !== member.client.user.id && !isStickyEnabled(member.id),
+    },
+  },
 });
 
 // Load slash commands
@@ -136,6 +157,22 @@ client.once(Events.ClientReady, async (c) => {
   await cacheAllMembers(c).catch((err) => console.error('[sticky roles] failed to load members:', err));
   // Payment tracker: picks up any payments still being tracked from before a restart.
   startPaymentTracker(c);
+
+  // Memory report: one line after 2 minutes, then every 10 minutes.
+  const report = () => {
+    if (global.gc) global.gc();
+    const m = process.memoryUsage();
+    const mb = (n) => Math.round(n / 1048576);
+    console.log(
+      `[MEM] rss=${mb(m.rss)}MB heapUsed=${mb(m.heapUsed)}MB` +
+        (global.gc ? ` afterGC=${mb(process.memoryUsage().heapUsed)}MB` : '') +
+        ` external=${mb(m.external)}MB | guilds=${c.guilds.cache.size} members=${c.guilds.cache.reduce((a, g) => a + g.members.cache.size, 0)} users=${c.users.cache.size}`
+    );
+  };
+  setTimeout(() => {
+    report();
+    setInterval(report, 10 * 60 * 1000).unref();
+  }, 2 * 60 * 1000).unref();
 });
 
 // Sticky roles: save a member's roles when they leave, give them back if they rejoin.
