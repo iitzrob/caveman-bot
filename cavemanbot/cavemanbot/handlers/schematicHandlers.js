@@ -80,6 +80,7 @@ async function handleSchematicMessage(message) {
 
   const destinationId = cfg.channels[message.channelId];
   if (!destinationId) return;
+  console.log(`[schematics] message in source channel ${message.channelId} from ${message.author?.tag}`);
 
   if (
     message.messageSnapshots === undefined &&
@@ -91,7 +92,10 @@ async function handleSchematicMessage(message) {
 
   const attachments = collectAttachments(message);
   const files = attachments.filter((a) => !isImage(a));
-  if (!files.length) return; // nothing to post unless there is a file
+  if (!files.length) {
+    console.log(`[schematics] ignored: no schematic file found (${attachments.length} attachments, snapshots: ${message.messageSnapshots ? message.messageSnapshots.size : 'unsupported'})`);
+    return; // nothing to post unless there is a file
+  }
 
   const destination = await message.client.channels.fetch(destinationId).catch(() => null);
   if (!destination || !destination.isTextBased()) {
@@ -119,6 +123,7 @@ async function handleSchematicMessage(message) {
   });
 
   if (keys.some((key) => inFlight.has(key)) || schematics.findDuplicate(keys)) {
+    console.log(`[schematics] blocked as a repeat: ${files.map((f) => f.name).join(', ')}`);
     tempReply(message, 'That schematic has already been posted, so it was not sent again.');
     return;
   }
