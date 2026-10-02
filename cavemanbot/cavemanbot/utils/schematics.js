@@ -102,7 +102,7 @@ function findCreator(fileNames) {
   for (const fileName of fileNames) {
     const text = stripPromo(baseName(fileName)).replace(/[_.]+/g, ' ');
     const match =
-      text.match(/(?<![A-Za-z0-9])(?:made|created|built|designed|credits?)?\s*by[\s\-:]+([A-Za-z0-9]+)/i) ||
+      text.match(/(?<![A-Za-z0-9])(?:made|created|built|designed|design|credits?)?\s*by[\s\-:]+([A-Za-z0-9]+)/i) ||
       text.match(/^\s*([A-Za-z0-9]+)['’]s\s/);
     if (!match) continue;
     let name = match[1];
@@ -145,27 +145,62 @@ function makeTitle(fileName, creatorName) {
 }
 
 
+// Credit lines the bot understands in a forwarded/posted message. Any of
+// these work (bold, no bold, with or without a colon where it is safe):
+//   Original Creator: Nevio        Original Designer - Nevio
+//   Credits: Nevio                 Credit to Nevio
+//   Designed by Nevio              Made by / Built by / Created by Nevio
+//   Author: Nevio                  Builder: Nevio
+//   <the name can also be a @mention>, or sit on the NEXT line.
+// Words like "creator/designer/credit" need a ":" or "-" (or "to") after them,
+// so normal sentences such as "without credit or permission" are ignored.
+const NOUN_LABEL = /(?:^|[^a-z0-9])(?:orig(?:inal)?\.?\s*)?(?:creators?|designers?|builders?|authors?|credits?)\s*(?:[:\-–—=]+|(?:goes\s+|go\s+)?to\b|is\b)\s*(.*)$/i;
+const BY_LABEL = /(?:^|[^a-z0-9])(?:made|built|build|designed|design|created|crafted|schematic)\s*by\s*[:\-–—]?\s*(.+)$/i;
+// A line that is ONLY a label (name is on the next line), e.g. "Original Designer".
+const BARE_LABEL = /^(?:orig(?:inal)?\.?\s*)?(?:creators?|designers?|builders?|authors?|credits?)\s*[:\-–—]?\s*$/i;
+
+function matchCreditLine(line) {
+  const m = line.match(NOUN_LABEL) || line.match(BY_LABEL);
+  return m ? m[1] : null;
+}
+
 // Reads the text of the forwarded/posted message itself. Looks for
 //   **Title line**                      (first line, wrapped in bold)
-//   **Original Creator: Nevio**         (or a @mention instead of a name)
+//   a credit line (see above)
 // Returns { title, creatorId, creatorName }, each null when not found.
 function readPostText(text) {
   const result = { title: null, creatorId: null, creatorName: null };
+  // Only strip formatting characters (not underscores) so @mentions stay intact.
+  const strip = (t) => t.replace(/[*~`|]/g, '');
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (!lines.length) return result;
 
-  const clean = (t) => t.replace(/[*_~`|]/g, '').trim();
+  const clean = (t) => strip(t).replace(/^[\s_@]+|[\s_]+$/g, '').trim();
 
-  for (const line of lines) {
-    const match = line.match(/(?:orig[a-z]*\s*)?(?:creators?|credits?|made\s*by|built\s*by)\s*[:\-–]\s*(.+)$/i);
-    if (!match) continue;
-    const mention = match[1].match(/<@!?(\d{15,25})>/);
+  let creditLineIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const plain = strip(lines[i]).trim();
+    let rest = matchCreditLine(plain);
+    if (rest === null && BARE_LABEL.test(plain)) rest = '';
+    if (rest === null) continue;
+
+    // Name is on the next line ("**Original Designer**" then "Nevio").
+    if (!rest.trim() || BARE_LABEL.test(plain)) {
+      const next = lines[i + 1] ? strip(lines[i + 1]).trim() : '';
+      if (!next || matchCreditLine(next) !== null || BARE_LABEL.test(next)) continue;
+      rest = next;
+    }
+
+    const mention = rest.match(/<@!?(\d{15,25})>/);
     if (mention) {
       result.creatorId = mention[1];
       result.creatorName = mention[1];
+      creditLineIndex = i;
       break;
     }
-    let value = clean(match[1]).replace(/\s+/g, ' ');
+    if (/<@&\d+>|<#\d+>/.test(rest)) continue; // roles/channels are not creators
+
+    let value = clean(rest).replace(/\s+/g, ' ');
     if (!value) continue;
     if (value.length > 40) value = value.slice(0, 40).trim();
     // If it is a creator from the config list, use their configured id/name.
@@ -176,12 +211,14 @@ function readPostText(text) {
     }
     result.creatorId = configured || value;
     result.creatorName = value;
+    creditLineIndex = i;
     break;
   }
 
-  // Title: only the FIRST line, and only when it is wrapped in **bold**.
+  // Title: only the FIRST line, and only when it is wrapped in **bold**
+  // (and is not itself the credit line).
   const first = lines[0].match(/^\*\*(.+?)\*\*$/);
-  if (first && !/creator|credit/i.test(first[1])) {
+  if (first && creditLineIndex !== 0 && matchCreditLine(strip(first[1])) === null && !BARE_LABEL.test(strip(first[1]).trim())) {
     const title = clean(first[1]).replace(/\s+/g, ' ');
     if (title) result.title = title;
   }
