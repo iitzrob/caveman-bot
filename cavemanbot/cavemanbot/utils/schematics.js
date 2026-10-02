@@ -73,6 +73,16 @@ function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Removes advert text from a file name, like "Join Zyrins Discord For More"
+// or "discord.gg/abc", so only the schematic's name is left.
+function stripPromo(text) {
+  return String(text || '')
+    .replace(/(?:https?:\/\/)?discord\.gg\/\S*/gi, ' ')
+    .replace(/(?<![A-Za-z0-9])join\b[\s\S]*?\bfor[\s_\-.]+more\b/gi, ' ')
+    .replace(/(?<![A-Za-z0-9])join\b[\s\S]*?\bdiscord\b/gi, ' ')
+    .replace(/(?<![A-Za-z0-9])discord\b/gi, ' ');
+}
+
 // Looks at the file names for a creator name from config.creators. Returns
 // { creatorId, creatorName } or nulls. Separators are ignored, so
 // "void_view" or "Void-View" still match "voidview".
@@ -91,6 +101,7 @@ function findCreator(fileNames) {
   for (const fileName of fileNames) {
     const text = baseName(fileName);
     const match =
+      text.match(/(?<![A-Za-z0-9])join[\s_\-.]+([A-Za-z0-9][A-Za-z0-9 _.]*?)['’]s[\s_\-.]+discord/i) ||
       text.match(/(?:^|[\s_\-.(\[])by[\s_\-.]+([^\-–—()\[\]]+)/i) ||
       text.match(/^([A-Za-z0-9]+)['’]s[\s_\-.]/);
     if (!match) continue;
@@ -107,7 +118,7 @@ function findCreator(fileNames) {
 
 // "voidview_christmas_tree_gamble.litematic" -> "Christmas Tree Gamble"
 function makeTitle(fileName, creatorName) {
-  let text = baseName(fileName);
+  let text = stripPromo(baseName(fileName));
 
   if (creatorName) {
     // Remove the creator name (and a "by" in front of it); the name may have
