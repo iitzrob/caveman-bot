@@ -35,6 +35,8 @@ const {
   handleApplicationOpenTicket,
 } = require('./handlers/applicationHandlers');
 const { handleLeaderboardRoleSelect } = require('./handlers/leaderboardHandlers');
+const { handleSchematicMessage, handleStaffBoardButton } = require('./handlers/schematicHandlers');
+const schematics = require('./utils/schematics');
 const { handleBuildFinishAgree, handleBuildFinishDisagree } = require('./utils/buildFinishActions');const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
 const { handleReactionRoleAdd, handleReactionRoleRemove } = require('./handlers/reactionRoleHandlers');
 
@@ -161,6 +163,7 @@ client.on(Events.MessageCreate, (message) => {
   handleLevelMessage(message).catch((err) => console.error('[levels] Error handling message:', err));
   handleAfkMessage(message).catch((err) => console.error('[afk] Error handling message:', err));
   handleVouchMessage(message).catch((err) => console.error('[vouches] Error handling message:', err));
+  handleSchematicMessage(message).catch((err) => console.error('[schematics] Error handling message:', err));
 });
 
 client.on(Events.MessageReactionAdd, (reaction, user) => {
@@ -179,6 +182,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.isButton()) {
+      if (interaction.customId === 'staff_lb_schematics' || interaction.customId === 'staff_lb_points') {
+        return await handleStaffBoardButton(interaction);
+      }
       if (interaction.customId.startsWith('ticket_open_')) {
         return await handleTicketOpen(interaction);
       }
@@ -281,6 +287,7 @@ cron.schedule(
   '0 1 * * 1',
   () => {
     points.resetAll();
+    schematics.resetWeekly();
     console.log('[Points] Weekly leaderboard has been reset.');
   },
   { timezone: config.timezone }
