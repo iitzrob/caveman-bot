@@ -1,176 +1,56 @@
-const crypto = require('crypto');
-const { AttachmentBuilder } = require('discord.js');
-const cfg = require('../schematicConfig');
-const schematics = require('../utils/schematics');
-const points = require('../utils/points');
-const { isStaff } = require('../utils/permissions');
-const { buildPointsBoard, buildSchematicBoard } = require('../utils/staffBoards');
+// =====================================================================
+// SCHEMATIC AUTO-POST SETTINGS
+// People forward (or post) a message with a schematic file in one of the
+// "source" channels below. The bot copies the files and images out of it
+// and re-posts them in the matching "destination" channel.
+// Everything you might want to edit is in this file.
+// =====================================================================
+module.exports = {
+  enabled: true,
 
-const MAX_FILES_PER_POST = 10; // Discord's limit per message
-const inFlight = new Set(); // fingerprints being posted right now (stops two forwards racing)
+  // source channel (where people forward) -> destination channel (where the bot posts)
+  channels: {
+    '1555536993394360411': '1534029833489612850',
+    '1555537076076806255': '1534029837184925699',
+    '1555537137451933797': '1534029841723162695',
+    '1555537181362225152': '1534029845430931587',
+    '1555537221644320868': '1534029848920457216',
+    '1555537272479424563': '1534029852372631562',
+    '1555537316229943336': '1534029860022911149',
+  },
 
-function isImage(attachment) {
-  const ext = String(attachment.name || '').split('.').pop().toLowerCase();
-  return (
-    (attachment.contentType && attachment.contentType.startsWith('image/')) ||
-    cfg.imageExtensions.includes(ext)
-  );
-}
+  // The "Original Creator" line is only added when a file name contains one
+  // of these names. Left side = the name to look for in the file name (not
+  // case sensitive), right side = that creator's Discord user id.
+  // Example: a file called "voidview_christmas_tree.litematic" or
+  // "Christmas Tree Gamble - voidview.litematic" credits that user.
+  // The right side can be a Discord user id (the bot mentions them) OR plain
+  // text (the bot just writes that name). To ping Zyrin, replace 'Zyrin'
+  // with his Discord user id in quotes.
+  creators: {
+    voidview: '764663858815565865',
+    zyrin: 'Zyrin',
+    kyle: 'Kyle',
+  },
 
-// Files and images from the message itself AND from anything it forwards
-// (a forwarded message keeps its attachments in "message snapshots").
-function collectAttachments(message) {
-  const found = new Map();
-  const add = (attachment) => {
-    if (attachment && !found.has(attachment.url)) found.set(attachment.url, attachment);
-  };
+  // Leaderboard: points each schematic post is worth for the person who
+  // forwarded it. Set alsoAddToStaffPoints to true to ALSO add them to the
+  // normal staff points (ticket points) board.
+  pointsPerPost: 2,
+  alsoAddToStaffPoints: false,
 
-  for (const attachment of message.attachments.values()) add(attachment);
-  if (message.messageSnapshots) {
-    for (const snapshot of message.messageSnapshots.values()) {
-      if (!snapshot.attachments) continue;
-      for (const attachment of snapshot.attachments.values()) add(attachment);
-    }
-  }
-  return [...found.values()];
-}
+  // Every `adEvery` posts in a destination channel the bot sends the build
+  // request message there. Every `pingEvery` posts it also pings pingId
+  // (a role or a user - the bot works out which).
+  adEvery: 10,
+  ticketChannelId: '1534029797389504572',
+  pingEvery: 30,
+  pingId: '1534129618473193613',
 
-async function download(attachment) {
-  const response = await fetch(attachment.url);
-  if (!response.ok) throw new Error(`download failed (${response.status}) for ${attachment.name}`);
-  return Buffer.from(await response.arrayBuffer());
-}
+  // Emojis used in the post.
+  emojiNo: '<a:nooo:1555535760831283220>',
+  emojiBlocks: '<:BlocksPlaced52234234:1533798033320575158>',
 
-function buildPostText(title, creatorId) {
-  const lines = [
-    `## ${cfg.emojiNo}   DO NOT SHARE THESE SCHEMATICS   ${cfg.emojiNo}`,
-    `##   ${cfg.emojiBlocks} ${title} ${cfg.emojiBlocks} `,
-    '**CaveMen Club**',
-    '',
-  ];
-  if (creatorId) {
-    // A Discord id gets mentioned; anything else is written as plain text.
-    const credit = /^\d{15,25}$/.test(String(creatorId)) ? `<@${creatorId}>` : creatorId;
-    lines.push(`**Original Creator:** ${credit}`);
-  }
-  lines.push(
-    '_Taking this schematic and reposting it in your own server without credit or permission will result in removal of access, scammer roles across partnered servers, and possible blacklist._'
-  );
-  return lines.join('\n');
-}
-
-function tempReply(message, text) {
-  message
-    .reply({ content: text, allowedMentions: { repliedUser: false } })
-    .then((reply) => setTimeout(() => reply.delete().catch(() => {}), 10 * 1000))
-    .catch(() => {});
-}
-
-// Is the ping id a role or a user? Works either way.
-async function buildPing(guild) {
-  const id = cfg.pingId;
-  const role = guild.roles.cache.get(id) || (await guild.roles.fetch(id).catch(() => null));
-  if (role) return { content: `<@&${id}>`, allowedMentions: { roles: [id] } };
-  return { content: `<@${id}>`, allowedMentions: { users: [id] } };
-}
-
-async function handleSchematicMessage(message) {
-  if (!cfg.enabled) return;
-  if (!message.guild || message.author?.bot) return;
-
-  const destinationId = cfg.channels[message.channelId];
-  if (!destinationId) return;
-
-  if (
-    message.messageSnapshots === undefined &&
-    message.reference &&
-    message.reference.type === 1
-  ) {
-    console.warn('[schematics] This is a forwarded message but this discord.js version is too old to read it. Run: npm install discord.js@latest');
-  }
-
-  const attachments = collectAttachments(message);
-  const files = attachments.filter((a) => !isImage(a));
-  if (!files.length) return; // nothing to post unless there is a file
-
-  const destination = await message.client.channels.fetch(destinationId).catch(() => null);
-  if (!destination || !destination.isTextBased()) {
-    console.error(`[schematics] Destination channel ${destinationId} not found or not a text channel.`);
-    return;
-  }
-
-  const toSend = attachments.slice(0, MAX_FILES_PER_POST);
-
-  let buffers;
-  try {
-    buffers = await Promise.all(toSend.map(download));
-  } catch (err) {
-    console.error('[schematics] Could not download the files:', err.message);
-    tempReply(message, "Couldn't read those files, try forwarding it again.");
-    return;
-  }
-
-  // Fingerprints of the schematic files: the file's content and its name.
-  const keys = [];
-  toSend.forEach((attachment, i) => {
-    if (isImage(attachment)) return;
-    keys.push(schematics.hashKey(crypto.createHash('sha256').update(buffers[i]).digest('hex')));
-    keys.push(schematics.nameKey(attachment.name));
-  });
-
-  if (keys.some((key) => inFlight.has(key)) || schematics.findDuplicate(keys)) {
-    tempReply(message, 'That schematic has already been posted, so it was not sent again.');
-    return;
-  }
-  keys.forEach((key) => inFlight.add(key));
-
-  try {
-    const fileNames = toSend.filter((a) => !isImage(a)).map((a) => a.name);
-    const { creatorId, creatorName } = schematics.findCreator(fileNames);
-    const title = schematics.makeTitle(fileNames[0], creatorName);
-
-    await destination.send({
-      content: buildPostText(title, creatorId),
-      files: toSend.map((attachment, i) => new AttachmentBuilder(buffers[i], { name: attachment.name })),
-      allowedMentions: { parse: [] },
-    });
-
-    // Posted - now it counts.
-    schematics.rememberAll(keys, { name: fileNames[0], by: message.author.id, at: Date.now() });
-    schematics.addPost(message.author.id);
-    if (cfg.alsoAddToStaffPoints) points.addPoints(message.author.id, cfg.pointsPerPost);
-
-    const count = schematics.bumpChannelCount(destination.id);
-
-    if (count % cfg.adEvery === 0) {
-      await destination
-        .send({
-          content: `Hey, are you liking any of these schematics but you don’t want to build them or don’t have time, then feel free to open a <#${cfg.ticketChannelId}> and we can build it for you.`,
-          allowedMentions: { parse: [] },
-        })
-        .catch((err) => console.error('[schematics] Could not send the build request message:', err.message));
-    }
-
-    if (count % cfg.pingEvery === 0) {
-      const ping = await buildPing(destination.guild);
-      await destination.send(ping).catch((err) => console.error('[schematics] Could not send the ping:', err.message));
-    }
-  } catch (err) {
-    console.error('[schematics] Could not post the schematic:', err);
-    tempReply(message, "Couldn't post that schematic (the file may be too big for this server).");
-  } finally {
-    keys.forEach((key) => inFlight.delete(key));
-  }
-}
-
-// Buttons under /staff-leaderboard: switches the board between staff points
-// and schematic posts.
-async function handleStaffBoardButton(interaction) {
-  if (!isStaff(interaction.member)) {
-    return interaction.reply({ content: 'You do not have permission to use this.', ephemeral: true });
-  }
-  const board = interaction.customId === 'staff_lb_schematics' ? buildSchematicBoard() : buildPointsBoard();
-  await interaction.update(board);
-}
-
-module.exports = { handleSchematicMessage, handleStaffBoardButton };
+  // File types that count as images (everything else counts as "the file").
+  imageExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'],
+};
