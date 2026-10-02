@@ -48,7 +48,11 @@ function buildPostText(title, creatorId) {
     '**CaveMen Club**',
     '',
   ];
-  if (creatorId) lines.push(`**Original Creator:** <@${creatorId}>`);
+  if (creatorId) {
+    // A Discord id gets mentioned; anything else is written as plain text.
+    const credit = /^\d{15,25}$/.test(String(creatorId)) ? `<@${creatorId}>` : creatorId;
+    lines.push(`**Original Creator:** ${credit}`);
+  }
   lines.push(
     '_Taking this schematic and reposting it in your own server without credit or permission will result in removal of access, scammer roles across partnered servers, and possible blacklist._'
   );
