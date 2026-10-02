@@ -1,6 +1,6 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { isStaff } = require('../utils/permissions');
-const points = require('../utils/points');
+const { buildPointsBoard } = require('../utils/staffBoards');
 
 // Anti-spam: each person gets 4 free uses, then has to wait out a 10s
 // cooldown before the command works again. In-memory only (resets if the
@@ -24,8 +24,9 @@ function getCooldownRemaining(userId) {
 }
 
 // /staff-leaderboard — shows everyone with points, ranked highest to lowest.
-// Top 3 get medal emojis, everyone else is just numbered underneath. Reply
-// is public (no ephemeral flag) so the whole channel sees it.
+// Top 3 get medal emojis, everyone else is just numbered underneath. The
+// button under the board switches it to the weekly schematic posts board.
+// Reply is public (no ephemeral flag) so the whole channel sees it.
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('staff-leaderboard')
@@ -44,29 +45,6 @@ module.exports = {
       });
     }
 
-    const data = points.getAll();
-    const list = Object.entries(data)
-      .map(([userId, pts]) => ({ userId, pts }))
-      .filter((entry) => entry.pts > 0)
-      .sort((a, b) => b.pts - a.pts);
-
-    if (!list.length) {
-      return interaction.reply({ content: 'No one has earned any points yet.', ephemeral: true });
-    }
-
-    const medals = ['🥇', '🥈', '🥉'];
-    const lines = list.map((entry, i) => {
-      const rank = medals[i] || `**${i + 1}.**`;
-      return `${rank} <@${entry.userId}> — ${entry.pts} pts`;
-    });
-
-    const embed = new EmbedBuilder()
-      .setTitle('🏆 Staff Leaderboard')
-      .setDescription(lines.join('\n').slice(0, 4096))
-      .setColor(0x2b2d31)
-      .setFooter({ text: 'Earn points in tickets — Rename: 3 pts, Close: 2 pts' })
-      .setTimestamp();
-
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply(buildPointsBoard());
   },
 };
