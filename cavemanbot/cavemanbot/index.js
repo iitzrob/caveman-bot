@@ -60,6 +60,12 @@ const client = new Client({
   makeCache: Options.cacheWithLimits({
     ...Options.DefaultMakeCacheSettings,
     MessageManager: 50,
+    UserManager: {
+      maxSize: 100,
+      keepOverLimit: (user) => user.id === user.client.user.id,
+    },
+    GuildInviteManager: 0,
+    GuildBanManager: 0,
     PresenceManager: 0,
     VoiceStateManager: 0,
     StageInstanceManager: 0,
