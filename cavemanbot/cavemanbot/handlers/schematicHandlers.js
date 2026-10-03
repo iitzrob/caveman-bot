@@ -84,22 +84,40 @@ async function download(attachment) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-function buildPostText(title, creatorId) {
+// Finds a custom emoji by name in any server the bot is in, so the template
+// can use :ANIMTED_BLUEGEM: etc. without hard-coding ids. Falls back to `fallback`.
+function emojiByName(client, name, fallback = '') {
+  const emoji = client.emojis.cache.find((e) => e.name === name);
+  return emoji ? emoji.toString() : fallback;
+}
+
+// creatorName is already a plain username / name (never an @mention).
+function buildPostText(client, title, creatorName) {
+  const gem = emojiByName(client, 'ANIMTED_BLUEGEM', cfg.emojiBlocks || '');
+  const club = emojiByName(client, '25F2FB6B769B4265A375168819C20316', '');
   const lines = [
     `## ${cfg.emojiNo}   DO NOT SHARE THESE SCHEMATICS   ${cfg.emojiNo}`,
-    `##   ${cfg.emojiBlocks} ${title} ${cfg.emojiBlocks} `,
-    '**CaveMen Club**',
+    `## ${gem}  ${title} ${gem}`.replace(/\s+\$/, ''),
+    `**${club ? club + ' ' : ''}CaveMen Club**`,
     '',
   ];
-  if (creatorId) {
-    // A Discord id gets mentioned; anything else is written as plain text.
-    const credit = /^\d{15,25}$/.test(String(creatorId)) ? `<@${creatorId}>` : creatorId;
-    lines.push(`**Original Creator:** ${credit}`);
+  if (creatorName) {
+    lines.push(`**Original Creator:** ${String(creatorName).replace(/@/g, '')}`);
   }
   lines.push(
     '_Taking this schematic and reposting it in your own server without credit or permission will result in removal of access, scammer roles across partnered servers, and possible blacklist._'
   );
   return lines.join('\n');
+}
+
+// A Discord id -> that person's username. Anything else is already a name.
+async function toDisplayName(client, guild, value) {
+  const text = String(value);
+  if (!/^\d{15,25}$/.test(text)) return text.replace(/@/g, '').trim() || null;
+  const member = guild && (guild.members.cache.get(text) || (await guild.members.fetch(text).catch(() => null)));
+  if (member && member.user) return member.user.username;
+  const user = client.users.cache.get(text) || (await client.users.fetch(text).catch(() => null));
+  return user ? user.username : null;
 }
 
 function tempReply(message, text) {
@@ -188,8 +206,10 @@ async function handleSchematicMessage(message) {
     let creatorSource = 'none';
     for (const [label, info] of sources) {
       if (info.creatorId && !blocked.has(String(info.creatorId))) {
-        creatorId = info.creatorId;
-        creatorName = info.creatorName;
+        const shown = await toDisplayName(message.client, message.guild, info.creatorId);
+        if (!shown) continue; // could not look the user up, try the next source
+        creatorId = shown;
+        creatorName = shown;
         creatorSource = label;
         break;
       }
@@ -199,7 +219,7 @@ async function handleSchematicMessage(message) {
     console.log(`[schematics] text title: ${textInfo.title || 'none'} | text creator: ${textInfo.creatorName || 'none'}`);
 
     await destination.send({
-      content: buildPostText(title, creatorId),
+      content: buildPostText(message.client, title, creatorId),
       files: toSend.map((attachment, i) => new AttachmentBuilder(buffers[i], { name: attachment.name })),
       allowedMentions: { parse: [] },
     });
