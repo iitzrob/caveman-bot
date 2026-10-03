@@ -135,7 +135,18 @@ async function buildPing(guild) {
   return { content: `<@${id}>`, allowedMentions: { users: [id] } };
 }
 
-async function handleSchematicMessage(message) {
+// Posts are handled ONE AT A TIME. When someone forwards several schematics at
+// once, downloading all of their files at the same moment is what makes the
+// bot's memory jump, so each post waits for the one before it to finish.
+let postQueue = Promise.resolve();
+function handleSchematicMessage(message) {
+  postQueue = postQueue
+    .then(() => processSchematicMessage(message))
+    .catch((err) => console.error('[schematics] queued post failed:', err));
+  return postQueue;
+}
+
+async function processSchematicMessage(message) {
   if (!cfg.enabled) return;
   if (!message.guild || message.author?.bot) return;
 
@@ -249,6 +260,13 @@ async function handleSchematicMessage(message) {
     tempReply(message, "Couldn't post that schematic (the file may be too big for this server).");
   } finally {
     keys.forEach((key) => inFlight.delete(key));
+    // The downloaded files are big. Let go of them and, when the bot runs with
+    // --expose-gc, clean up a few seconds later so the memory is given back.
+    buffers = null;
+    if (typeof global.gc === 'function') {
+      const timer = setTimeout(() => global.gc(), 3000);
+      if (timer.unref) timer.unref();
+    }
   }
 }
 
