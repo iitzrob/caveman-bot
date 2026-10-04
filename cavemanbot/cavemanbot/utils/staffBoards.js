@@ -41,13 +41,22 @@ function buildPointsBoard() {
   return { embeds: [embed], components: [row] };
 }
 
-// Weekly schematic posts: every post is worth schematicCfg.pointsPerPost.
+// Points for someone's posts: their own rate from pointsPerPostOverrides if
+// they have one, otherwise pointsPerPost. Rounded so 3 x 0.35 shows as 1.05.
+function pointsFor(userId, posts) {
+  const custom = (schematicCfg.pointsPerPostOverrides || {})[String(userId)];
+  const rate = typeof custom === 'number' ? custom : schematicCfg.pointsPerPost;
+  return Math.round(posts * rate * 100) / 100;
+}
+
+// Weekly schematic posts: every post is worth schematicCfg.pointsPerPost,
+// except for people with their own rate in pointsPerPostOverrides.
 function buildSchematicBoard() {
   const perPost = schematicCfg.pointsPerPost;
   const list = Object.entries(schematics.getWeekly())
-    .map(([userId, posts]) => ({ userId, posts, pts: posts * perPost }))
+    .map(([userId, posts]) => ({ userId, posts, pts: pointsFor(userId, posts) }))
     .filter((entry) => entry.posts > 0)
-    .sort((a, b) => b.posts - a.posts);
+    .sort((a, b) => b.pts - a.pts || b.posts - a.posts);
 
   const description = list.length
     ? rankLines(list, (entry) => `${entry.posts} ${entry.posts === 1 ? 'post' : 'posts'} — ${entry.pts} pts`)
