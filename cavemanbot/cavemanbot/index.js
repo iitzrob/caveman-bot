@@ -39,6 +39,7 @@ const { handleSchematicMessage, handleStaffBoardButton } = require('./handlers/s
 const schematics = require('./utils/schematics');
 const { handleBuildFinishAgree, handleBuildFinishDisagree } = require('./utils/buildFinishActions');const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
 const { handleReactionRoleAdd, handleReactionRoleRemove } = require('./handlers/reactionRoleHandlers');
+const { handleGuideEditButton, handleGuideModalSubmit } = require('./commands/guide');
 
 const client = new Client({
   intents: [
@@ -228,6 +229,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId === 'staff_lb_schematics' || interaction.customId === 'staff_lb_points') {
         return await handleStaffBoardButton(interaction);
       }
+      if (interaction.customId.startsWith('guide_edit:')) {
+        return await handleGuideEditButton(interaction);
+      }
       if (interaction.customId.startsWith('ticket_open_')) {
         return await handleTicketOpen(interaction);
       }
@@ -293,6 +297,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith('guide_modal:')) {
+        return await handleGuideModalSubmit(interaction);
+      }
       if (interaction.customId === 'ticket_rename_modal') {
         return await handleRenameModalSubmit(interaction);
       }
