@@ -50,6 +50,13 @@ module.exports = {
   pointsPerPost: 2,
   alsoAddToStaffPoints: false,
 
+  // Different rate for specific people: Discord user id -> points per schematic
+  // post. Anyone not listed here uses pointsPerPost above. (Applies to the
+  // Schematic Posts leaderboard.)
+  pointsPerPostOverrides: {
+    '1306454516094205984': 0.35,
+  },
+
   // Every `adEvery` posts in a destination channel the bot sends the build
   // request message there. Every `pingEvery` posts it also pings pingId
   // (a role or a user - the bot works out which).
