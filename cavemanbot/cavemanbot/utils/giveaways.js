@@ -9,7 +9,7 @@ const createStore = require('./jsonStore');
 const { isStaff } = require('./permissions');
 
 // { [messageId]: { messageId, channelId, guildId, prize, hostId, hostName,
-//   hostAvatar, endsAt, winnerCount, entries: [userIds], ended, winners: [] } }
+//   hostAvatar, description, endsAt, winnerCount, entries: [userIds], ended, winners: [] } }
 const store = createStore('giveaways.json', {});
 
 const ENTER_ID = 'giveaway_enter';
@@ -39,32 +39,45 @@ function footerFor(g) {
   return footer;
 }
 
+// Text shown above the embed (like GiveawayBot's header line).
+function activeContent() {
+  return '🎉 **GIVEAWAY** 🎉';
+}
+
+function endedContent() {
+  return '🎉 **GIVEAWAY ENDED** 🎉';
+}
+
 function activeEmbed(g) {
   const ts = Math.floor(g.endsAt / 1000);
+  const lines = [`## ${g.prize}`];
+  if (g.description) lines.push(g.description);
+  lines.push(
+    '',
+    `> **Ends:** <t:${ts}:R> (<t:${ts}:f>)`,
+    `> **Entries:** ${g.entries.length}   **Winners:** ${g.winnerCount}`,
+    '',
+    'Press the button to join the giveaway!'
+  );
   return new EmbedBuilder()
     .setColor(COLOR_ACTIVE)
-    .setTitle(g.prize)
-    .setDescription(
-      `Click the button below to enter!\n\n` +
-        `**Ends:** <t:${ts}:R> (<t:${ts}:f>)\n` +
-        `**Hosted by:** <@${g.hostId}>\n` +
-        `**Winners:** ${g.winnerCount}`
-    )
+    .setDescription(lines.join('\n'))
     .setFooter(footerFor(g));
 }
 
 function endedEmbed(g) {
   const ts = Math.floor(g.endsAt / 1000);
   const winners = g.winners.length ? g.winners.map((id) => `<@${id}>`).join(', ') : 'No valid entrants';
+  const lines = [`## ${g.prize}`];
+  if (g.description) lines.push(g.description);
+  lines.push(
+    '',
+    `> **Ended:** <t:${ts}:R> (<t:${ts}:f>)`,
+    `> **Entries:** ${g.entries.length}   **Winners:** ${winners}`
+  );
   return new EmbedBuilder()
     .setColor(COLOR_ENDED)
-    .setTitle(g.prize)
-    .setDescription(
-      `**Ended:** <t:${ts}:R> (<t:${ts}:f>)\n` +
-        `**Hosted by:** <@${g.hostId}>\n` +
-        `**Winners:** ${winners}\n` +
-        `**Entries:** ${g.entries.length}`
-    )
+    .setDescription(lines.join('\n'))
     .setFooter(footerFor(g));
 }
 
@@ -127,7 +140,7 @@ async function endGiveaway(client, messageId, { early = false } = {}) {
 
   const { channel, message } = await fetchGiveawayMessage(client, g);
   if (message) {
-    await message.edit({ embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch((err) =>
+    await message.edit({ content: endedContent(), embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch((err) =>
       console.error('[giveaways] edit on end failed:', err.message)
     );
   }
@@ -175,7 +188,7 @@ async function rerollGiveaway(client, messageId, count = 1) {
       .catch(() => {});
   }
   if (message && winners.length) {
-    await message.edit({ embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch(() => {});
+    await message.edit({ content: endedContent(), embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch(() => {});
   }
   return { g, winners };
 }
@@ -202,6 +215,8 @@ module.exports = {
   ENTER_ID,
   canManage,
   parseDuration,
+  activeContent,
+  endedContent,
   activeEmbed,
   activeRow,
   endedRow,
