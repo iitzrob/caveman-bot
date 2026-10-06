@@ -40,6 +40,8 @@ const schematics = require('./utils/schematics');
 const { handleBuildFinishAgree, handleBuildFinishDisagree } = require('./utils/buildFinishActions');const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
 const { handleReactionRoleAdd, handleReactionRoleRemove } = require('./handlers/reactionRoleHandlers');
 const { handleGuideEditButton, handleGuideModalSubmit } = require('./commands/guide');
+const { handleGiveawayButton } = require('./handlers/giveawayHandlers');
+const { startGiveawayTimer } = require('./utils/giveaways');
 
 const client = new Client({
   intents: [
@@ -164,6 +166,8 @@ client.once(Events.ClientReady, async (c) => {
   await cacheAllMembers(c).catch((err) => console.error('[sticky roles] failed to load members:', err));
   // Payment tracker: picks up any payments still being tracked from before a restart.
   startPaymentTracker(c);
+  // Giveaways: ends any that are due (also after a restart).
+  startGiveawayTimer(c);
 
   // Memory report: one line after 2 minutes, then every 10 minutes.
   const report = () => {
@@ -228,6 +232,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton()) {
       if (interaction.customId === 'staff_lb_schematics' || interaction.customId === 'staff_lb_points') {
         return await handleStaffBoardButton(interaction);
+      }
+      if (interaction.customId === 'giveaway_enter') {
+        return await handleGiveawayButton(interaction);
       }
       if (interaction.customId.startsWith('guide_edit:')) {
         return await handleGuideEditButton(interaction);
