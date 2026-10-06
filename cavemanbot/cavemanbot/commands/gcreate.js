@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
-const { store, canManage, parseDuration, activeContent, activeEmbed, activeRow } = require('../utils/giveaways');
+const { store, canManage, parseDuration, activeEmbed, activeRow } = require('../utils/giveaways');
 
 const MIN_MS = 10 * 1000;
 const MAX_MS = 30 * 24 * 60 * 60 * 1000;
@@ -71,11 +71,7 @@ module.exports = {
 
     await interaction.deferReply({ ephemeral: true });
 
-    const message = await channel.send({
-      content: activeContent(),
-      embeds: [activeEmbed(g)],
-      components: [activeRow(g)],
-    });
+    const message = await channel.send({ embeds: [activeEmbed(g)], components: [activeRow(g)] });
     g.messageId = message.id;
     store.set(message.id, g);
 
