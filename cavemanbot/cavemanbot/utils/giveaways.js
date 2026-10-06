@@ -39,15 +39,6 @@ function footerFor(g) {
   return footer;
 }
 
-// Text shown above the embed (like GiveawayBot's header line).
-function activeContent() {
-  return '🎉 **GIVEAWAY** 🎉';
-}
-
-function endedContent() {
-  return '🎉 **GIVEAWAY ENDED** 🎉';
-}
-
 function activeEmbed(g) {
   const ts = Math.floor(g.endsAt / 1000);
   const lines = [`## ${g.prize}`];
@@ -61,6 +52,7 @@ function activeEmbed(g) {
   );
   return new EmbedBuilder()
     .setColor(COLOR_ACTIVE)
+    .setAuthor({ name: '🎉 Giveaway' })
     .setDescription(lines.join('\n'))
     .setFooter(footerFor(g));
 }
@@ -77,6 +69,7 @@ function endedEmbed(g) {
   );
   return new EmbedBuilder()
     .setColor(COLOR_ENDED)
+    .setAuthor({ name: '🎉 Giveaway Ended' })
     .setDescription(lines.join('\n'))
     .setFooter(footerFor(g));
 }
@@ -85,7 +78,7 @@ function activeRow(g) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(ENTER_ID)
-      .setLabel(`Enter (${g.entries.length})`)
+      .setLabel('Enter')
       .setEmoji('🎉')
       .setStyle(ButtonStyle.Primary)
   );
@@ -95,7 +88,7 @@ function endedRow(g) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(ENTER_ID)
-      .setLabel(`Giveaway Ended (${g.entries.length})`)
+      .setLabel('Giveaway Ended')
       .setEmoji('🎉')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true)
@@ -140,7 +133,7 @@ async function endGiveaway(client, messageId, { early = false } = {}) {
 
   const { channel, message } = await fetchGiveawayMessage(client, g);
   if (message) {
-    await message.edit({ content: endedContent(), embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch((err) =>
+    await message.edit({ content: '', embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch((err) =>
       console.error('[giveaways] edit on end failed:', err.message)
     );
   }
@@ -188,7 +181,7 @@ async function rerollGiveaway(client, messageId, count = 1) {
       .catch(() => {});
   }
   if (message && winners.length) {
-    await message.edit({ content: endedContent(), embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch(() => {});
+    await message.edit({ content: '', embeds: [endedEmbed(g)], components: [endedRow(g)] }).catch(() => {});
   }
   return { g, winners };
 }
@@ -215,8 +208,6 @@ module.exports = {
   ENTER_ID,
   canManage,
   parseDuration,
-  activeContent,
-  endedContent,
   activeEmbed,
   activeRow,
   endedRow,
