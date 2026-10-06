@@ -1,4 +1,4 @@
-const { store, ENTER_ID, activeContent, activeEmbed, activeRow } = require('../utils/giveaways');
+const { store, ENTER_ID, activeEmbed, activeRow } = require('../utils/giveaways');
 
 // Enter / leave a giveaway by clicking the button.
 async function handleGiveawayButton(interaction) {
@@ -19,7 +19,7 @@ async function handleGiveawayButton(interaction) {
   store.set(g.messageId, g);
 
   await interaction.update({
-    content: activeContent(),
+    content: '',
     embeds: [activeEmbed(g)],
     components: [activeRow(g)],
   });
