@@ -12,6 +12,7 @@ const staffQuestions = [
   { text: 'Do you have experience with being a staff member? If yes, explain where and what was ur rank (send server link)' },
   { text: 'What qualities do you think a staff member should have?' },
   { text: 'How often are you able to be active in this discord server?' },
+  { text: 'Have you read the rules and reqs?' },
 ];
 
 const builderQuestions = [
@@ -21,12 +22,14 @@ const builderQuestions = [
   { text: 'How many vouches do you have and where are they?' },
   { text: 'How often are you able to build for people?' },
   { text: 'Do you understand that if you scam someone you will be demoted and get blacklisted forever on 50+ servers?' },
+  { text: 'Have you read the rules and reqs?' },
 ];
 
 const partnerManagerQuestions = [
   { text: 'What servers are you PM (Partner Manager) in?' },
   { text: 'Do you know how to do waves?', type: 'yesno' },
   { text: "What's your IGN?" },
+  { text: 'Have you read the rules and reqs?' },
 ];
 
 const mediaManagerQuestions = [
