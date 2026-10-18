@@ -4,6 +4,25 @@ const schematics = require('./schematics');
 const giveawayStats = require('./giveawayStats');
 const schematicCfg = require('../schematicConfig');
 const { isStaff } = require('./permissions');
+const config = require('../config');
+
+// "Oct 18, 2026, 3:45 PM" in the bot's configured timezone.
+function updatedText() {
+  let when;
+  try {
+    when = new Date().toLocaleString('en-US', {
+      timeZone: config.timezone || undefined,
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    when = new Date().toLocaleString('en-US');
+  }
+  return `Updated ${when}`;
+}
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -51,8 +70,7 @@ function buildPointsBoard() {
     .setTitle('🏆 Staff Leaderboard')
     .setDescription(description)
     .setColor(0x2b2d31)
-    .setFooter({ text: 'Earn points in tickets — Rename: 3 pts, Close: 2 pts' })
-    .setTimestamp();
+    .setFooter({ text: `Earn points in tickets — Rename: 3 pts, Close: 2 pts - ${updatedText()}` });
 
   return { embeds: [embed], components: [navRow('points')] };
 }
@@ -84,8 +102,7 @@ function buildSchematicBoard() {
     .setTitle('Schematic Posts Leaderboard')
     .setDescription(description)
     .setColor(0x2b2d31)
-    .setFooter({ text: `Each schematic post earns ${perPost} pts — Resets every Monday at 1:00 AM` })
-    .setTimestamp();
+    .setFooter({ text: `Each schematic post earns ${perPost} pts - ${updatedText()}` });
 
   return { embeds: [embed], components: [navRow('schematics')] };
 }
@@ -107,8 +124,7 @@ function buildGiveawayBoard() {
     .setTitle('Giveaways Leaderboard')
     .setDescription(description)
     .setColor(0x2b2d31)
-    .setFooter({ text: 'Counts giveaways you host — Resets every Monday at 1:00 AM' })
-    .setTimestamp();
+    .setFooter({ text: `Counts giveaways you host - ${updatedText()}` });
 
   return { embeds: [embed], components: [navRow('giveaways')] };
 }
