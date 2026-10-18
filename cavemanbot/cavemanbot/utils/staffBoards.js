@@ -1,7 +1,9 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const points = require('./points');
 const schematics = require('./schematics');
+const giveawayStats = require('./giveawayStats');
 const schematicCfg = require('../schematicConfig');
+const { isStaff } = require('./permissions');
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -12,8 +14,29 @@ function rankLines(entries, format) {
   });
 }
 
-// The normal staff points board (same look as before) plus a button that
-// switches the message over to the schematic posts board.
+// One row with a button for every board. The board you're currently looking
+// at has its button greyed out (disabled) so it can't be pressed.
+function navRow(active) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('staff_lb_points')
+      .setLabel('Staff Points')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(active === 'points'),
+    new ButtonBuilder()
+      .setCustomId('staff_lb_schematics')
+      .setLabel('Schematic Posts')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(active === 'schematics'),
+    new ButtonBuilder()
+      .setCustomId('staff_lb_giveaways')
+      .setLabel('Giveaways')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(active === 'giveaways')
+  );
+}
+
+// The normal staff points board.
 function buildPointsBoard() {
   const list = Object.entries(points.getAll())
     .map(([userId, pts]) => ({ userId, pts }))
@@ -31,14 +54,7 @@ function buildPointsBoard() {
     .setFooter({ text: 'Earn points in tickets — Rename: 3 pts, Close: 2 pts' })
     .setTimestamp();
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('staff_lb_schematics')
-      .setLabel('Schematic Posts')
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  return { embeds: [embed], components: [row] };
+  return { embeds: [embed], components: [navRow('points')] };
 }
 
 // Points for someone's posts: their own rate from pointsPerPostOverrides if
@@ -71,14 +87,42 @@ function buildSchematicBoard() {
     .setFooter({ text: `Each schematic post earns ${perPost} pts — Resets every Monday at 1:00 AM` })
     .setTimestamp();
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('staff_lb_points')
-      .setLabel('Staff Points')
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  return { embeds: [embed], components: [row] };
+  return { embeds: [embed], components: [navRow('schematics')] };
 }
 
-module.exports = { buildPointsBoard, buildSchematicBoard };
+// Weekly giveaways hosted per staff member (counted when /gcreate is used).
+function buildGiveawayBoard() {
+  const list = Object.entries(giveawayStats.getWeekly())
+    .map(([userId, count]) => ({ userId, count }))
+    .filter((entry) => entry.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const description = list.length
+    ? rankLines(list, (entry) => `${entry.count} ${entry.count === 1 ? 'giveaway' : 'giveaways'}`)
+        .join('\n')
+        .slice(0, 4096)
+    : 'No giveaways have been hosted this week.';
+
+  const embed = new EmbedBuilder()
+    .setTitle('Giveaways Leaderboard')
+    .setDescription(description)
+    .setColor(0x2b2d31)
+    .setFooter({ text: 'Counts giveaways you host — Resets every Monday at 1:00 AM' })
+    .setTimestamp();
+
+  return { embeds: [embed], components: [navRow('giveaways')] };
+}
+
+// Handles all three board buttons (staff only).
+async function handleStaffBoardButton(interaction) {
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: 'You do not have permission to use this.', ephemeral: true });
+  }
+  let board;
+  if (interaction.customId === 'staff_lb_schematics') board = buildSchematicBoard();
+  else if (interaction.customId === 'staff_lb_giveaways') board = buildGiveawayBoard();
+  else board = buildPointsBoard();
+  await interaction.update(board);
+}
+
+module.exports = { buildPointsBoard, buildSchematicBoard, buildGiveawayBoard, handleStaffBoardButton };
