@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { store, canManage, parseDuration, activeEmbed, activeRow } = require('../utils/giveaways');
+const giveawayStats = require('../utils/giveawayStats');
 
 const MIN_MS = 10 * 1000;
 const MAX_MS = 30 * 24 * 60 * 60 * 1000;
@@ -74,6 +75,7 @@ module.exports = {
     const message = await channel.send({ embeds: [activeEmbed(g)], components: [activeRow(g)] });
     g.messageId = message.id;
     store.set(message.id, g);
+    giveawayStats.addGiveaway(interaction.user.id); // counts toward the staff giveaways leaderboard
 
     return interaction.editReply({
       content: `Giveaway started in ${channel}.\nMessage ID: \`${message.id}\``,
