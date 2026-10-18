@@ -37,6 +37,8 @@ const {
 const { handleLeaderboardRoleSelect } = require('./handlers/leaderboardHandlers');
 const { handleSchematicMessage, handleStaffBoardButton } = require('./handlers/schematicHandlers');
 const schematics = require('./utils/schematics');
+const giveawayStats = require('./utils/giveawayStats');
+const { handleStaffBoardButton: handleStaffBoardNav } = require('./utils/staffBoards');
 const { handleBuildFinishAgree, handleBuildFinishDisagree } = require('./utils/buildFinishActions');const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
 const { handleReactionRoleAdd, handleReactionRoleRemove } = require('./handlers/reactionRoleHandlers');
 const { handleGuideEditButton, handleGuideModalSubmit } = require('./commands/guide');
@@ -230,8 +232,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.isButton()) {
-      if (interaction.customId === 'staff_lb_schematics' || interaction.customId === 'staff_lb_points') {
-        return await handleStaffBoardButton(interaction);
+      if (['staff_lb_schematics', 'staff_lb_points', 'staff_lb_giveaways'].includes(interaction.customId)) {
+        return await handleStaffBoardNav(interaction);
       }
       if (interaction.customId === 'giveaway_enter') {
         return await handleGiveawayButton(interaction);
@@ -345,6 +347,7 @@ cron.schedule(
   () => {
     points.resetAll();
     schematics.resetWeekly();
+    giveawayStats.resetWeekly();
     console.log('[Points] Weekly leaderboard has been reset.');
   },
   { timezone: config.timezone }
